@@ -1,6 +1,8 @@
 import argparse
 import os
+import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, BlendParams, RasterizationSettings, \
@@ -8,14 +10,15 @@ from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, Bl
 
 from PandaArm import PandaArm
 from Utils import image_grid
-from src.RobotMeshRenderer import RobotMeshRenderer
+from RobotMeshRenderer import RobotMeshRenderer
 
-base_dir = "/home/sscekic/master-thesis/src"
+base_dir = os.path.abspath(".")
+sys.path.append(base_dir)
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	args = parser.parse_args("")
-	args.base_dir = "/home/sscekic/CtRNet-robot-pose-estimation"
+	args.base_dir = "/home/sscekic/master-thesis/src"
 	args.use_gpu = False
 	args.trained_on_multi_gpus = True
 	args.keypoint_seg_model_path = os.path.join(args.base_dir, "weights/panda/panda-3cam_azure/net.pth")
@@ -46,8 +49,19 @@ if __name__ == '__main__':
 				  base_dir + "/urdfs/Panda/meshes/visual/link7/link7.obj",
 				  base_dir + "/urdfs/Panda/meshes/visual/hand/hand.obj",
 				  ]
+	if torch.cuda.is_available():
+		print("Using cuda")
+		device = torch.device("cuda:0")
+		torch.cuda.set_device(device)
+	else:
+			print(
+					'Please note that NeRF is a resource-demanding method.'
+					+ ' Running this notebook on CPU will be extremely slow.'
+					+ ' We recommend running the example on a GPU'
+					+ ' with at least 10 GB of memory.'
+			)
+			device = torch.device("cpu")
 
-	device = 'cpu'
 	R, T = look_at_view_transform(2.8, 0, 50)
 
 	cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=30)
@@ -67,6 +81,7 @@ if __name__ == '__main__':
 		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
 	)
 
+	print(args.urdf_file)
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
 	configuration = np.array([-5.32755313, -4.51632518, 1.02188406, 5.39148447, 1.54878585, 3.39261642, -6.11622803])
@@ -75,7 +90,7 @@ if __name__ == '__main__':
 	robot_mesh = robot_renderer.get_robot_mesh(joint_angles)
 
 	# Set batch size - this is the number of different viewpoints from which we want to render the mesh.
-	batch_size = 20
+	batch_size = 2
 
 	# Create a batch of meshes by repeating the cow mesh and associated textures.
 	# Meshes has a useful `extend` method which allows us do this very easily.
@@ -97,4 +112,5 @@ if __name__ == '__main__':
 
 	images = renderer(meshes, cameras=cameras, lights=lights)
 	image_grid(images.cpu().numpy(), rows=4, cols=5, rgb=True)
+	plt.show()
 
