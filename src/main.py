@@ -81,36 +81,38 @@ if __name__ == '__main__':
 		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
 	)
 
-	print(args.urdf_file)
+ 
+	num_configs = 1000
+	num_joints = 7
+	angle_min = -2 * np.pi
+	angle_max = 2 * np.pi
+	# Generate the configurations
+	configurations = np.random.uniform(low=angle_min, high=angle_max, size=(num_configs, num_joints))
+
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
-	configuration = np.array([-5.32755313, -4.51632518, 1.02188406, 5.39148447, 1.54878585, 3.39261642, -6.11622803])
-	print(f"Currently rendering for configuration: {configuration}")
-	joint_angles = configuration
-	robot_mesh = robot_renderer.get_robot_mesh(joint_angles)
+	
+	for configuration in configurations:
+		robot_mesh = robot_renderer.get_robot_mesh(configuration)
 
-	# Set batch size - this is the number of different viewpoints from which we want to render the mesh.
-	batch_size = 2
+		# Set batch size - this is the number of different viewpoints from which we want to render the mesh.
+		batch_size = 4
+		meshes = robot_mesh.extend(batch_size)
 
-	# Create a batch of meshes by repeating the cow mesh and associated textures.
-	# Meshes has a useful `extend` method which allows us do this very easily.
-	# This also extends the textures.
-	meshes = robot_mesh.extend(batch_size)
+		# Get a batch of viewing angles.
+		elev = torch.linspace(0, 180, batch_size)
+		azim = torch.linspace(-180, 180, batch_size)
 
-	# Get a batch of viewing angles.
-	elev = torch.linspace(0, 180, batch_size)
-	azim = torch.linspace(-180, 180, batch_size)
+		R, T = look_at_view_transform(dist=2.7, elev=elev, azim=azim)
+		cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=30)
 
-	# All the cameras helper methods support mixed type inputs and broadcasting. So we can
-	# view the camera from the same distance and specify dist=2.7 as a float,
-	# and then specify elevation and azimuth angles for each viewpoint as tensors.
-	R, T = look_at_view_transform(dist=2.7, elev=elev, azim=azim)
-	cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=30)
+		images = renderer(meshes, cameras=cameras, lights=lights)
+		
+		for index,image in enumerate(images, 1):
+			print(image.shape)
+			plt.figure(figsize=(10, 10))
+			plt.imshow(image[..., :3].cpu().numpy())
+			plt.axis("off")
+			plt.savefig(f"generated-images/{index}/{configuration}.png")
 
-	# Move the light back in front of the cow which is facing the -z direction.
-	lights.location = torch.tensor([[0.0, 0.0, -3.0]], device=device)
-
-	images = renderer(meshes, cameras=cameras, lights=lights)
-	image_grid(images.cpu().numpy(), rows=4, cols=5, rgb=True)
-	plt.show()
-
+		break
