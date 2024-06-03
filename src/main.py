@@ -51,7 +51,7 @@ if __name__ == '__main__':
 				  ]
 	if torch.cuda.is_available():
 		print("Using cuda")
-		device = torch.device("cuda:0")
+		device = torch.device("cuda:1")
 		torch.cuda.set_device(device)
 	else:
 			print(
@@ -81,38 +81,51 @@ if __name__ == '__main__':
 		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
 	)
 
+	joint_limits = [
+    (-2.8973, 2.8973),    # Joint 1
+    (-1.7628, 1.7628),    # Joint 2
+    (-2.8973, 2.8973), # Joint 3
+    (-3.0718, -0.0698),    # Joint 4
+    (-2.8973, 2.8973), # Joint 5
+    (-0.0175, 3.7525),    # Joint 6
+    (-2.8973, 2.8973)  # Joint 7
+	]
  
-	num_configs = 1000
+	num_configs = 500
 	num_joints = 7
 	angle_min = -2 * np.pi
 	angle_max = 2 * np.pi
 	# Generate the configurations
-	configurations = np.random.uniform(low=angle_min, high=angle_max, size=(num_configs, num_joints))
+	configurations = np.array([
+    np.random.uniform(low=min_angle, high=max_angle, size=num_configs)
+    for min_angle, max_angle in joint_limits
+	]).T
 
+	lights = PointLights(device=device, location=((-2.0, -2.0, -2.0),))
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
-	
+	R, T = look_at_view_transform(dist=2, elev=84, azim=-180)
+	cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=60)
+
 	for configuration in configurations:
-		robot_mesh = robot_renderer.get_robot_mesh(configuration)
+		batch_size = 5
 
-		# Set batch size - this is the number of different viewpoints from which we want to render the mesh.
-		batch_size = 4
-		meshes = robot_mesh.extend(batch_size)
-
-		# Get a batch of viewing angles.
+		# Get a batch of viewing angles. 
 		elev = torch.linspace(0, 180, batch_size)
 		azim = torch.linspace(-180, 180, batch_size)
 
-		R, T = look_at_view_transform(dist=2.7, elev=elev, azim=azim)
-		cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=30)
+		# All the cameras helper methods support mixed type inputs and broadcasting. So we can 
+		# view the camera from the same distance and specify dist=2.7 as a float,
+		# and then specify elevation and azimuth angles for each viewpoint as tensors. 
+		for i in range(batch_size):
+			os.makedirs(f"generated-images/{elev[i]}-{azim[i]}", exist_ok=True)
 
-		images = renderer(meshes, cameras=cameras, lights=lights)
-		
-		for index,image in enumerate(images, 1):
-			print(image.shape)
+			R, T = look_at_view_transform(dist=2.7, elev=elev[i], azim=azim[i])
+			cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
+			robot_mesh = robot_renderer.get_robot_mesh(configuration)
+			images = renderer(robot_mesh, cameras=cameras, lights=lights)
+
 			plt.figure(figsize=(10, 10))
-			plt.imshow(image[..., :3].cpu().numpy())
+			plt.imshow(images[0,..., :3].cpu().numpy())
 			plt.axis("off")
-			plt.savefig(f"generated-images/{index}/{configuration}.png")
-
-		break
+			plt.savefig(f"generated-images/{elev[i]}-{azim[i]}/{configuration}.png", transparent=True, bbox_inches='tight', pad_inches=0)
