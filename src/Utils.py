@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-
+from itertools import chain, combinations
+import numpy as np
 
 def image_grid(
     images,
@@ -45,3 +46,39 @@ def image_grid(
             ax.imshow(im[..., 3])
         if not show_axes:
             ax.set_axis_off()
+
+
+def create_powerset(iterable):
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s)+1))
+
+def generate_configurations(number_per_powerset):
+	powersets = create_powerset([0,1,2,3,4,5,6])
+	joint_limits = [
+			(-2.8973, 2.8973),    # Joint 1
+			(-1.7628, 1.7628),    # Joint 2
+			(-2.8973, 2.8973), # Joint 3
+			(-3.0718, -0.0698),    # Joint 4
+			(-2.8973, 2.8973), # Joint 5
+			(-0.0175, 3.7525),    # Joint 6
+			(-2.8973, 2.8973)  # Joint 7
+		]
+
+	all_configurations = np.empty((0,7))
+	for powerset in powersets:
+			if powerset == ():
+					continue
+
+			# set temporary limits for current subset
+			temp_limits = np.array([(0,0), (0,0), (0,0), (0,0), (0,0), (0,0), (0,0)])
+			for index in powerset:
+					temp_limits[index] = joint_limits[index]
+
+			configurations = np.array([
+				np.random.uniform(low=min_angle, high=max_angle, size=number_per_powerset)
+				for min_angle, max_angle in temp_limits
+			]).T
+
+			all_configurations = np.vstack([all_configurations, configurations])
+
+	return all_configurations
