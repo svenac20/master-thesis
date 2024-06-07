@@ -9,7 +9,7 @@ from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, Bl
 	PointLights, MeshRenderer, MeshRasterizer, SoftPhongShader
 
 from PandaArm import PandaArm
-from Utils import image_grid, generate_configurations
+from Utils import getConfigurationFromImageName, image_grid, generate_configurations, setImageName
 from RobotMeshRenderer import RobotMeshRenderer
 
 base_dir = os.path.abspath(".")
@@ -90,7 +90,7 @@ if __name__ == '__main__':
   #   for min_angle, max_angle in joint_limits
 	# ]).T
 
-	configurations = generate_configurations(16)
+	configurations = generate_configurations(16, 6)
 	lights = PointLights(device=device, location=((-2.0, -2.0, -2.0),))
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 	cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=60)
 
 	for configuration in configurations:
-		print(f"configuration={configuration}")
+		print(f"configuration={setImageName(configuration)}")
 		batch_size = 1
 
 		# Get a batch of viewing angles. 
@@ -120,7 +120,8 @@ if __name__ == '__main__':
 		images = renderer(robot_mesh, cameras=cameras, lights=lights)
 
 		plt.figure(figsize=(10, 10))
+		plt.axis("off")
 		plt.imshow(images[0,..., :3].cpu().numpy())
-		plt.savefig(f"{folder_name}/dist-2-test/{configuration}.png", transparent=True, bbox_inches='tight', pad_inches=0)
+		plt.savefig(f"{folder_name}/dist-2-test/test-2.png", transparent=True, bbox_inches='tight', pad_inches=0)
 		plt.close()
 		break

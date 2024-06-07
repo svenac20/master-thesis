@@ -132,6 +132,21 @@ from Utils import image_grid
 # In[ ]:
 
 
+path = 'src/generated-images-powerset/second-test/'
+img_names = os.listdir(path)
+width = 577
+height = 770
+
+images = np.empty((len(img_names), height, width, 4))
+for idx, name in enumerate(img_names):
+    img_name = path + name
+    # Use you favourite library to load the image
+    image = plt.imread(img_name)
+    images[idx] = image
+
+print(images.shape)
+print(images[0])
+
 target_cameras, target_images, target_silhouettes = generate_cow_renders(num_views=40, azimuth_range=180)
 
 print(target_images.shape)
