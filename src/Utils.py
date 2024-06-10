@@ -101,13 +101,15 @@ def setImageName(configuration):
 	return ";".join(array_as_strings)
 
 def getConfigurationFromImageName(s, dtype=float):
-    # Split the string by the semicolon
-    str_list = s.split(';')
+	# Split the string by the semicolon
+	extension = s.rfind(".")
+	s = s[:extension]
+	str_list = s.split(';')
     
-    # Convert the list of strings to a NumPy array of the specified dtype
-    array = np.array(str_list, dtype=dtype)
+  # Convert the list of strings to a NumPy array of the specified dtype
+	array = np.array(str_list, dtype=dtype)
     
-    return array
+	return array
 
 
 class TensorImageDataset(Dataset):

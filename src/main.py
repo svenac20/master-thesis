@@ -90,7 +90,7 @@ if __name__ == '__main__':
   #   for min_angle, max_angle in joint_limits
 	# ]).T
 
-	configurations = generate_configurations(16, 6)
+	configurations = generate_configurations(8, 6)
 	lights = PointLights(device=device, location=((-2.0, -2.0, -2.0),))
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 	cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=60)
 
 	for configuration in configurations:
-		print(f"configuration={setImageName(configuration)}")
+		print(f"currently running for configuration: {setImageName(configuration)}")
 		batch_size = 1
 
 		# Get a batch of viewing angles. 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 		elev = 90
 		azim = 0
 		# for i in range(batch_size):
-		os.makedirs(f"{folder_name}/dist-2-test", exist_ok=True)
+		os.makedirs(f"{folder_name}", exist_ok=True)
 
 		R, T = look_at_view_transform(dist=2, elev=elev, azim=azim)
 		cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
@@ -122,6 +122,5 @@ if __name__ == '__main__':
 		plt.figure(figsize=(10, 10))
 		plt.axis("off")
 		plt.imshow(images[0,..., :3].cpu().numpy())
-		plt.savefig(f"{folder_name}/dist-2-test/test-2.png", transparent=True, bbox_inches='tight', pad_inches=0)
+		plt.savefig(f"{folder_name}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
 		plt.close()
-		break

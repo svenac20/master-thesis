@@ -37,24 +37,7 @@ import os
 import sys
 import torch
 need_pytorch3d=False
-try:
-    import pytorch3d
-except ModuleNotFoundError:
-    need_pytorch3d=True
-if need_pytorch3d:
-    if torch.__version__.startswith("2.2.") and sys.platform.startswith("linux"):
-        # We try to install PyTorch3D via a released wheel.
-        pyt_version_str=torch.__version__.split("+")[0].replace(".", "")
-        version_str="".join([
-            f"py3{sys.version_info.minor}_cu",
-            torch.version.cuda.replace(".",""),
-            f"_pyt{pyt_version_str}"
-        ])
-        get_ipython().system('pip install fvcore iopath')
-        get_ipython().system('pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/{version_str}/download.html')
-    else:
-        # We try to install PyTorch3D from source.
-        get_ipython().system("pip install 'git+https://github.com/facebookresearch/pytorch3d.git@stable'")
+import pytorch3d
 
 
 # In[ ]:
@@ -132,8 +115,7 @@ from Utils import generate_rays_pytorch3d, getImagesDataloader, image_grid
 
 # In[ ]:
 
-images_data_loader = getImagesDataloader("src/generated-images-powerset/second-test/")
-print(f"Images shape: {images_data_loader[i].shape}")
+images_data_loader = getImagesDataloader("src/generated-images-powerset-2/")
 
 # ## 2. Initialize the implicit renderer
 # 
@@ -164,10 +146,10 @@ class CoordinatesEncoder(torch.nn.Module):
     def __init__(self, input_size, output_size):
         super().__init__()
         self.network = torch.nn.Sequential(
-            torch.nn.BatchNorm1d(input_size),
+            torch.nn.BatchNorm2d(input_size),
             torch.nn.Linear(input_size, output_size),
-            torch.nn.ReLU(),
-        )
+            torch.nn.ReLU()
+        ).to("cuda:1")
     
     def forward(self, x):
         return self.network(x)
@@ -183,9 +165,10 @@ class ConfigurationEncoder(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(hidden_dim_size, output_size),
             torch.nn.ReLU(),
-        )
+        ).to("cuda:1")
     
     def forward(self, x):
+        # x is [16,750,128]
         return self.network(x)
 
 class NeuralRadianceField(torch.nn.Module):
@@ -199,7 +182,7 @@ class NeuralRadianceField(torch.nn.Module):
         # self.mlp is a simple 2-layer multi-layer perceptron
         # which converts the input per-point harmonic embeddings
         # to a latent representation.
-        self.coordinate_encoder = torch.nn.ModuleList([CoordinatesEncoder(input_size=1, output_size=encoders_output) for _ in range(3)])        
+        self.coordinate_encoder = torch.nn.ModuleList([CoordinatesEncoder(input_size=1, output_size=encoders_output) for _ in range(3)])
         
         self.configuration_encoder = torch.nn.ModuleList([ConfigurationEncoder(input_size=1, hidden_dim_size=n_hidden_neurons, output_size=encoders_output) for _ in range(7)])        
 
@@ -208,14 +191,14 @@ class NeuralRadianceField(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(n_hidden_neurons, encoders_output),
             torch.nn.ReLU(),
-        )
+        ).to("cuda:1")
 
         self.group_configuration_encoder = torch.nn.Sequential(
             torch.nn.Linear(7 * encoders_output, n_hidden_neurons),
             torch.nn.ReLU(),
             torch.nn.Linear(n_hidden_neurons, encoders_output),
             torch.nn.ReLU(),
-        )
+        ).to("cuda:1")
         
         # The density layer converts the features of self.mlp
         # to a 1D density value representing the raw opacity
@@ -235,7 +218,7 @@ class NeuralRadianceField(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(n_hidden_neurons, 1),
             torch.nn.ReLU(),
-        )
+        ).to("cuda:1")
 
         # Given features predicted by self.mlp, self.color_layer
         # is responsible for predicting a 3-D per-point vector
@@ -247,12 +230,12 @@ class NeuralRadianceField(torch.nn.Module):
             torch.nn.Sigmoid(),
             # To ensure that the colors correctly range between [0-1],
             # the layer is terminated with a sigmoid layer.
-        )  
+        ).to("cuda:1")  
                 
     def forward(
         self, 
-        configuration,
         ray_bundle,
+        configuration,
         **kwargs,
     ):
         """
@@ -281,13 +264,17 @@ class NeuralRadianceField(torch.nn.Module):
         # coordinates with `ray_bundle_to_ray_points`.
 
         # [batch_size x num_points_per_ray x width x color]
-        rays_points_world = ray_bundle_to_ray_points(ray_bundle)
-        # rays_points_world.shape = [minibatch x ... x 3]
+        # [1, 750, 128, 3]
+        rays_points_world = ray_bundle_to_ray_points(ray_bundle).to("cuda:1")
         
+        #extend to batch size for easier calculations
+        # [16, 750, 128, 3]
+        rays_points_world = rays_points_world.repeat(16,1,1,1)
+
         # encode coordinates
         encoded_coordinates = []
         for i in range(3):
-            encoded_coordinates.append(self.coordinate_encoder[i](rays_points_world[..., i]))
+            encoded_coordinates.append(self.coordinate_encoder[i](rays_points_world[..., i:i+1].permute(0,3,1,2)).to("cuda:1"))
         encoded_coordinates = torch.stack(encoded_coordinates, dim=-1)
 
         encoded_configurations = []
@@ -426,8 +413,9 @@ def show_full_render(
 # with a significant amount of details, we render
 # the implicit function at double the size of 
 # target images.
-render_size_height = images_data_loader[0].shape[1]
-render_size_width = images_data_loader[0].shape[2]
+
+render_size_height = next(iter(images_data_loader))[0].shape[1]
+render_size_width = next(iter(images_data_loader))[0].shape[2]
 
 # Our rendered scene is centered around (0,0,0) 
 # and is enclosed inside a bounding box
@@ -500,26 +488,27 @@ n_epochs = 15
 loss_history_color, loss_history_sil = [], []
 R, T = look_at_view_transform(dist=2, elev=84, azim=-180)
 cameras = FoVPerspectiveCameras(device=device, R=R, T=T, fov=60)
-ray_origins, ray_directions = generate_rays_pytorch3d(cameras, images_data_loader[0].shape[1], images_data_loader[0].shape(2))
 
 nerf = NeuralRadianceField()
 
 # The main optimization loop.
 for epochs in range(n_epochs):      
     
-    for (images, configuartions) in images_data_loader:
+    for images, configurations in images_data_loader:
         # Zero the optimizer gradient.
         optimizer.zero_grad()
 
         rendered_pixels, sampled_rays = renderer_mc(
             cameras=cameras,
-            volumetric_function=nerf
+            volumetric_function=nerf,
+            configuration=configurations
         )
 
         ground_thruth_pixels = sample_images_at_mc_locs(images, sampled_rays.xys)
 
         loss = (rendered_pixels - ground_thruth_pixels).abs().mean()
         
+        print(f"Loss is: {loss}")
         # Take the optimization step.
         loss.backward()
         optimizer.step()
