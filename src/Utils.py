@@ -1,6 +1,10 @@
+import os
 import matplotlib.pyplot as plt
 from itertools import chain, combinations
 import numpy as np
+import torch
+from torch.utils.data import Dataset, DataLoader
+
 
 def image_grid(
 	images,
@@ -104,3 +108,78 @@ def getConfigurationFromImageName(s, dtype=float):
     array = np.array(str_list, dtype=dtype)
     
     return array
+
+
+class TensorImageDataset(Dataset):
+	def __init__(self, images_tensor, configurations):
+			self.images = images_tensor
+			self.configurations = configurations
+
+	def __len__(self):
+			return self.images.shape[0]
+
+	def __getitem__(self, idx):
+			return self.images[idx], self.configurations[idx]
+		
+
+def getImagesDataloader(path, batch_size=16):
+	img_names = os.listdir(path)
+	width = 577
+	height = 770
+
+	images = np.empty((len(img_names), height, width, 3))
+	configurations = np.empty((len(img_names),1, 7))
+	for idx, name in enumerate(img_names):
+		configurations[idx] = [getConfigurationFromImageName(name)]
+		img_name = path + name
+		# Use you favourite library to load the image
+		image = plt.imread(img_name)
+		image = image[:, :, :3]
+		images[idx] = image
+
+	dataset = TensorImageDataset(images, configurations)
+	return DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+
+def generate_rays_pytorch3d(cameras, image_height, image_width):
+    """
+    Generate ray origins and directions for each pixel in the image using PyTorch3D camera.
+
+    Args:
+        cameras (PerspectiveCameras): PyTorch3D camera object.
+        image_height (int): Height of the image.
+        image_width (int): Width of the image.
+
+    Returns:
+        ray_origins (torch.Tensor): Ray origins in world space (image_height * image_width, 3).
+        ray_directions (torch.Tensor): Ray directions in world space (image_height * image_width, 3).
+    """
+    # Create a mesh grid of pixel coordinates
+    i, j = torch.meshgrid(torch.linspace(0, image_width - 1, image_width),
+                          torch.linspace(0, image_height - 1, image_height))
+    i = i.t()
+    j = j.t()
+
+    # Normalize pixel coordinates to range [-1, 1]
+    pixel_coords = torch.stack([i, j], dim=-1).float()
+    pixel_coords[..., 0] = (pixel_coords[..., 0] / (image_width - 1)) * 2 - 1
+    pixel_coords[..., 1] = (pixel_coords[..., 1] / (image_height - 1)) * 2 - 1
+
+    # Create homogeneous coordinates (H, W, 3)
+    pixel_coords = torch.cat([pixel_coords, torch.ones_like(pixel_coords[..., :1])], dim=-1)
+    pixel_coords = pixel_coords.view(-1, 3)  # Reshape to (H * W, 3)
+
+    # Transform pixel coordinates to camera coordinates
+    ray_directions = cameras.unproject_points(pixel_coords)  # (H * W, 3)
+
+    # Get camera center in world coordinates
+    camera_center = cameras.get_camera_center().squeeze(0)  # (3)
+
+    # Compute ray directions
+    ray_directions = ray_directions - camera_center  # (H * W, 3)
+    ray_directions = ray_directions / torch.norm(ray_directions, dim=-1, keepdim=True)  # Normalize directions
+
+    # The origin of all rays is the camera position in world coordinates
+    ray_origins = camera_center.expand(ray_directions.shape)
+
+    return ray_origins, ray_directions
