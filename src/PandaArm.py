@@ -22,10 +22,6 @@ class PandaArm():
 		return np.array(R_list), np.array(t_list)
 
 	class Panda(ERobot):
-		"""
-		Class that imports a URDF model
-		"""
-
 		def __init__(self, urdf_file):
 			links, name, urdf_string, urdf_filepath = self.URDF_read(urdf_file)
 
@@ -35,5 +31,4 @@ class PandaArm():
 				manufacturer="Franka",
 				urdf_string=urdf_string,
 				urdf_filepath=urdf_filepath,
-				# gripper_links=elinks[9]
 			)
