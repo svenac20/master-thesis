@@ -1,0 +1,2 @@
+https://parasollab.web.illinois.edu/ppl_crashcourse/documents/principles_robot_motion.chapter_3.pdf
+Modern robotics

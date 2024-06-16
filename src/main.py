@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 import torch
+from matplotlib import pyplot as plt
 from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, BlendParams, RasterizationSettings, \
 	PointLights, MeshRenderer, MeshRasterizer, SoftPhongShader
 
@@ -75,7 +76,7 @@ if __name__ == '__main__':
 	robot_mesh = robot_renderer.get_robot_mesh(joint_angles)
 
 	# Set batch size - this is the number of different viewpoints from which we want to render the mesh.
-	batch_size = 20
+	batch_size = 2
 
 	# Create a batch of meshes by repeating the cow mesh and associated textures.
 	# Meshes has a useful `extend` method which allows us do this very easily.
@@ -96,5 +97,7 @@ if __name__ == '__main__':
 	lights.location = torch.tensor([[0.0, 0.0, -3.0]], device=device)
 
 	images = renderer(meshes, cameras=cameras, lights=lights)
-	image_grid(images.cpu().numpy(), rows=4, cols=5, rgb=True)
+	print(images.shape)
+	image_grid(images.cpu().numpy(), rows=1, cols=2, rgb=True)
+	plt.show()
 
