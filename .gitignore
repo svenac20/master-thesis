@@ -1,2 +1,5 @@
 /.idea
 /out
+__pycache__
+generated-images
+*.png
