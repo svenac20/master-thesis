@@ -369,7 +369,6 @@ Sada nam preostaje odrediti pojedinačne transformacijske matrice za susjedne zg
 Ovo možemo odrediti pomoću dva pristupa.
 Prvi pristup koristi PoE formulu, dok se drugi pristup oslanja na DH (Denavit-Hartenberg) parametre.
 \subsection{PoE formula}
-Prvi pristup koristi takozvanu PoE (engl. \textit{Product of exponentials formula}) formulu.
 Za izračun putem ovog pristupa potrebne su nam sljedeće varijable:
 \begin{itemize}
     \item Matrica \textit{M} koja predstavlja položaj i orjentaciju izvršnog elementa kada je manipulator u početnom stanju, odnosno kada su svi kutovi zglobova jednaki 0
@@ -419,10 +418,74 @@ Tako će homogena transformacijska matrica za zglob \textit{i} biti definirana p
      T_{0i}=e^{\left[\mathcal{S}_{1}\right] \theta_{1}}  e^{\left[\mathcal{S}_{2}\right] \theta_{2}} , ..., e^{\left[\mathcal{S}_{i-1}\right] \theta_{i-1}} e^{\left[\mathcal{S}_{i}\right] \theta_{i}} M
     \label{eq:eksponencijalna-reprezentacija}
 \end{equation}
-
+\newpage
 \subsection{DH parametri}
+DH, odnosno Denavit-Hartenberg parametri, predstavljaju drugačiji način definiranja parametara za pojedini zglob manipulatora.
+U formuli (\ref{eq:s-matrica-stupac}) možemo vidjeti kako za potpunu definiciju matrice \textit{S} pojedinog zgloba moramo poznavati šest parametara, odnosno tri za translaciju te tri za rotaciju.
+Nasuprot tome, DH parametri zahtjevaju samo četiri varijable za pojedini zglob manipulatora.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/dh-parametri}
+    \caption{Ilustracija DH parametara revolucijskog i prizmatičnog zgloba}
+    \label{fig:dh-parametri}
+\end{figure}
+
+\noindent Varijable koje definiraju su možemo vidjeti na slici \ref{fig:dh-parametri}, a predstavljaju sljedeće:
+\begin{enumerate}
+    \item duljina članka \textit{$a_i$} predstavlja udaljenost između osi rotacije susjednih zglobova te ne mora nužno odgovarati duljini stvarnog članka
+    \item zaokret članka \textit{$\alpha_i$} predstavlja kut između z osi susjednog članka \textit{$z_{i-1}$} i
+    \item pomak članka \textit{$d_i$} je udaljenost između \textit{$x_{i-1}$} i \textit{$z_{i}$}
+    \item kut zgloba \textit{$\theta_i$} je kut između \textit{$x_{i-1}$} i \textit{$x_{i}$} u odnosu na os \textit{$z_{i}$}
+\end{enumerate}
+Kako bi korisnicima svojih manipulatora olakšali upravljanje, proizvođači obično objave DH parametre za svaki pojedini zglob.
+Tako su nam te vrijednosti poznate i za naš promatrani Panda manipulator te ih možemo vidjeti u tablici \ref{tab:dh_parameters}
+\renewcommand{\arraystretch}{2}
+\begin{table}[H]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+\textbf{Zglob} & \textbf{$a_i$ (m)} & \textbf{$d_i$ (m)} & \textbf{$\alpha_i$ (rad)} & \textbf{\(\theta\) (rad)} \\
+\hline
+Zglob 1 & 0 & 0.333 & 0 & \(\theta_1\) \\
+\hline
+Zglob 2 & 0 & 0 & \(-\frac{\pi}{2}\) & \(\theta_2\) \\
+\hline
+Zglob 3 & 0 & 0.316 & \(\frac{\pi}{2}\) & \(\theta_3\) \\
+\hline
+Zglob 4 & 0.0825 & 0 & \(\frac{\pi}{2}\) & \(\theta_4\) \\
+\hline
+Zglob 5 & -0.0825 & 0.384 & \(-\frac{\pi}{2}\) & \(\theta_5\) \\
+\hline
+Zglob 6 & 0 & 0 & \(\frac{\pi}{2}\) & \(\theta_6\) \\
+\hline
+Zglob 7 & 0.088 & 0 & \(\frac{\pi}{2}\) & \(\theta_7\) \\
+\hline
+\end{tabular}
+\caption{DH parametri Panda manipulatora}
+\label{tab:dh_parameters}
+\end{table}
+Nakon što su nam poznati DH parametri našeg promatranog manipulatora spremni smo izvesti homogene transformacijske matrice potrebne formulu definiranu pod (\ref{eq:equation-direktna-kinematika}).
+Općeniti oblik transformacijske matrice iz DH parametara definiran je u (\ref{eq:transformation-matrix-dh}):
+
+\renewcommand{\arraystretch}{1}
+\begin{equation}
+T_i=\left[\begin{array}{cccc}
+c_{\theta_i} & -s_{\theta_i} c_{\alpha_i} & s_{\theta_i} s_{\alpha_i} & a_i c_{\theta_i} \\
+s_{\theta_i} & c_{\theta_i} c_{\alpha_i} & -c_{\theta_i} s_{\alpha_i} & a_i s_{\theta_i} \\
+0 & s_{\alpha_i} & c_{\alpha_i} & d_i \\
+0 & 0 & 0 & 1
+\end{array}\right]
+    \label{eq:transformation-matrix-dh}
+\end{equation}
+
+Sada trivijalno možemo izračunati vrijednost transformacijskih matrica svakog pojedinog zgloba, uvrstiti ih u (\ref{eq:equation-direktna-kinematika}) te dobiti rješenje direktne kinematike.
+
+\newpage
+\section{Inverzna kinematika}
 
 %-------------------------------------------------------------------------------
+
+
 \chapter{Rezultati i rasprava}
 \label{pog:rezultati_i_rasprava}
 
