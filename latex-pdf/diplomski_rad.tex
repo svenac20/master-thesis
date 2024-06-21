@@ -177,7 +177,7 @@ Različite numeričke reprezentacije i topologije možemo vidjeti na slici \ref{
     \label{fig:configuration-topology}
 \end{figure}
 
-\section{Kinematika krutog tijela}
+\section{Kinematika krutog tijela} \label{section:kin-krutog-tijela}
 Kruto tijelo ćemo definirati kao idealni sustav točaka koje održavaju iste međusobne razmake~\cite{defKrutogTijela}.
 Ranije smo spomenuli kako za potpuno određivanje konfiguracije manipulatora u prostoru moramo znati položaj njegovih točaka.
 Da bismo poznavali položaj tih točaka potrebno je definirati u kojem koordinatnog sustavu ih promatramo.
@@ -358,10 +358,10 @@ Direktnu kinematiku možemo računati u koordinatnom sustavu robota ili u prosto
 Mi ćemo se u nastavku fokusirati samo na prostorni oblik pošto nam je on korisniji kod upravljanja manipulatorom u stvarnom svijetu, pogotovo ako su pristune neke prepreke unutar prostora.
 
 U formuli direktne kinematike koristit ćemo transformacijske matrice za transformaciju položaja i orjentacije između koordinatnih sustava svakog pojedinog zgloba.
-Tako ćemo kod Panda robota, kojeg smo promatrali, za izračun direktne kinematike imati sedam transformacijskih matrica za susjedne zglobove.
+Tako ćemo kod Panda robota, kojeg smo promatrali, za izračun direktne kinematike imati sedam transformacijskih matrica za susjedne zglobove te još dvije transformacijske matrice za dio kod izvršnog elementa.
 Formula za izračun direktne kinematike tada će biti definirana u formuli (\ref{eq:equation-direktna-kinematika}):
 \begin{equation}
-T_{07}=T_{01} T_{12} T_{23} T_{34} T_{45} T_{56} T_{67}
+T_{07}=T_{01} T_{12} T_{23} T_{34} T_{45} T_{56} T_{67} T_{F} T_{EE}
     \label{eq:equation-direktna-kinematika}
 \end{equation}
 
@@ -460,13 +460,16 @@ Zglob 6 & 0 & 0 & \(\frac{\pi}{2}\) & \(\theta_6\) \\
 \hline
 Zglob 7 & 0.088 & 0 & \(\frac{\pi}{2}\) & \(\theta_7\) \\
 \hline
+Prirubnica & 0 & 0.107 & 0 & 0 \\
+\hline
+Izvršni element & 0 & 0.1034 & 0 & \(\frac{\pi}{4}\) \\
+\hline
 \end{tabular}
 \caption{DH parametri Panda manipulatora}
 \label{tab:dh_parameters}
 \end{table}
 Nakon što su nam poznati DH parametri našeg promatranog manipulatora spremni smo izvesti homogene transformacijske matrice potrebne formulu definiranu pod (\ref{eq:equation-direktna-kinematika}).
 Općeniti oblik transformacijske matrice iz DH parametara definiran je u (\ref{eq:transformation-matrix-dh}):
-
 \renewcommand{\arraystretch}{1}
 \begin{equation}
 T_i=\left[\begin{array}{cccc}
@@ -478,18 +481,275 @@ s_{\theta_i} & c_{\theta_i} c_{\alpha_i} & -c_{\theta_i} s_{\alpha_i} & a_i s_{\
     \label{eq:transformation-matrix-dh}
 \end{equation}
 
-Sada trivijalno možemo izračunati vrijednost transformacijskih matrica svakog pojedinog zgloba, uvrstiti ih u (\ref{eq:equation-direktna-kinematika}) te dobiti rješenje direktne kinematike.
-
 \newpage
 \section{Inverzna kinematika}
+Inverzna kinematika problem je kod kojeg želimo saznati potrebne kuteve zglobova manipulatora ukoliko nam je poznat željeni položaj i orjentacija izvršnog elementa.
+Ovaj problem je veoma bitan jer nam omogućuje da manipulator obavlja nama koristan posao.
+Definiramo željenu poziciju i orjentaciju izvršnog elementa u prostoru te izračunom inverzne kinematike postavljamo manipulator u potrebnu konfiguraciju.
+Problem inverzne kinematike obično sadrži više mogućih konfiguracija manipulatora što nam pomaže u slučajevima kada se u radnom prostoru robota nalaze prepreke te pojedine konfiguracije nisu moguće uz navedena ograničenja.
 
+Pri rješavanju ovog problema možemo koristiti jedan od dva moguća pristupa, a to su analitički te numerički pristup.
+Mi smo u svojoj programskoj implementaciji koristili analitički pristup.
+
+\subsection{Analitčka inverzna kinematika}
+Analitički pristup rješavanju problema inverzne kinematike predstavlja izvod rješenja putem analitičke geometrije.
+Promatranjem međusobnih odnosa zglobova i članaka izvodimo konačno rješenje.
+
+Naravno zbog same prirode pristupa, svaki manipulator zahtjeva zasebni analitički pristup te ne postoji jedinstveni pristup.
+Ovaj proces može biti veoma kompleksan, no velika prednost je njegova brzina.
+Još jedna prednost je mogućnost dobivanja svih mogućih rješenja što kod numeričkih metoda možda neće biti slučaj.
+Primjer analize jednog od zglobova Panda robota možemo vidjeti na slici \ref{fig:inv-kin-panda-joint-3}
+
+U ovom radu koristili smo upravo ovaj pristup pošto su nas zanimale sve moguće konfiguracije robota za pojedine poze izvršnog elementa.
+Također zbog potrebe da generiramo veliki broj konfiguracija bila nam je bitna i brzina rješavanja problema te bi nam za numeričku metodu bilo potrebno više vremena i računalne snage.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=10cm]{img/inverse-kinematics-panda-joint-3}
+    \caption{Izračun kuta trećeg zgloba Panda robota}
+    \label{fig:inv-kin-panda-joint-3}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{9646185}}
+
+\subsection{Numerička inverzna kinematika}
+Numerički pristup rješavanju problema inverzne kinematike koristi razne numeričke metode za pronalaženje rješenja.
+U mnogo slučajeva nećemo imati razvijeno analitčko rješenje te je zato potrebno koristit ovaj pristup.
+Ovaj problem možemo postaviti kao rješavanje problema pronalaska nultočki nelinearne funkcije.
+Jedna od veoma često korištenih metoda je Newton-Raphsonova metoda.
+
+Ovom metodom pronalazimo nasumičan broj rješenja ovisno o težini traženog problema.
+Obično prilikom definiranja problema postavljamo i određeni prag greške koji je potrebno zadovoljiti.
+To nam daje mogućnost da ovisno o željenom ishodu dobijemo manje, odnosno više, točna rješenja.
+Važno je napomenuti da numeričke metode ponekad neće uspjeti pronaći zadovoljavajuće rješenje te je zato potrebno i ograničiti vrijeme traženja problema.
 %-------------------------------------------------------------------------------
 
 
-\chapter{Rezultati i rasprava}
-\label{pog:rezultati_i_rasprava}
+\chapter{Poligoni, kamera i slika}
+\label{pog:kamera-i-slika}
+U nastavku ćemo pobliže objasniti proces nastanja dvodimenzionalnih (2D) slika, odnosno kako naše trodimenzionalne (3D) objekte prikazujemo na 2D slici.
+Generiranje slike je veoma složen postupak koji zahtjeva puno različitih matematičkih operacija.
+Prvo ćemo opisati kako naše 3D objekte predstavljamo putem poligona te ćemo nakon toga objasniti grafički protočni sustav.
 
+\section{Poligoni i \textit{mesh} datoteke}
+Prvi korak u generiranju slike nekog 3D objekta je njegov prikaz na računalu.
+Cilj nam je nad reprezentacijom tog objekta izvršavati razne matematičke operacije i geometrijske transformacije.
+Zbog toga nam je korisno da naš objekt bude u obliku pogodnom za računanje, ali također želimo i sačuvati sve informacije o njegovom obliku kako ga ne bismo krivo prikazali.
+Upravo zato ćemo za opis ploha koje omeđuju naš objekt koristiti poligone, odnosno trokute radi što jednostavnije reprezentacije.
+Primjer kako broj poligona utječe na oblik objekta kojeg želimo prikazati možemo vidjeti na slici \ref{fig:polygons}
 
+Za opis našeg manipulatora koristili smo \textit{mesh} datoteke.
+Ove datoteke opisuju naš manipulator preko njegovih vrhova, bridova te ploha koje su, kao što je ranije spomenuto, opisane trokutima.
+Postoje dvije glavne vrste mesh datoteka, a to su kolizijske (engl. \textit{collision}) i vizualne (engl. \textit{visual}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/polygons}
+    \caption{Poligoni kod reprezentacije 3D objekata}
+    \label{fig:polygons}
+\end{figure}
+\footnotetext{Preuzeto sa \url{https://cgifurniture.com/what-are-polygons-in-3d-modeling}}
+
+Kolizijske \textit{mesh} datoteke primarno se koriste kod fizičkih simulacija i detekcije sudara.
+Prednost ovog načina prikaza je primarno njegova jednostavnost.
+Objekt se ne prikazuje potpuno detaljno, ali je i dalje ispravno prikazan oblikom i volumenom.
+Ovaj način zbog svoje jednostavnosti također zahtjeva manje računalne snage te je pogodan ukoliko želimo određeni posao odraditi brže i efikasnije.
+
+Vizualne \textit{mesh} datoteke koriste se kod detaljnog prikaza objekta.
+Upravo ovaj tip \textit{mesh} datoteke smo koristili prilikom generiranja slika našeg manipulatora.
+Prednosti ovog prikaza su detaljniji prikaz ploha koje uključuju i teksture te boje kako bi potpuno ispravno prikazali objekt.
+Naravno, zbog detaljnijeg prikaza, datoteke su veće veličine.
+
+Na slici \ref{fig:panda-3d-model} vidimo primjer 3D modela Panda robota koji koristi vizualne \textit{mesh} datoteke.
+Možemo vidjeti kako je model veoma detaljan te sadrži i teksture na plohama.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/panda-3d-model}
+    \caption{3D model Panda robota}
+    \label{fig:panda-3d-model}
+\end{figure}
+\footnotetext{Preuzeto sa \url{https://www.researchgate.net/figure/A-Panda-manipulator-from-Franka-Emika-visualized-on-a-macOS-laptop-The-3D-models-were_fig1_343986452}}
+
+\section{Grafički protočni sustav}
+Proces nastajanja slike opisan je kao grafički protočni sustav kojeg možemo vidjeti na slici \ref{fig:graficki-sustav}
+Sastoji se od tri glavna dijela a to su:
+\begin{enumerate}
+    \item geometrijski sustav za izdvajanje vrhova objekta te izračun osvjetljenja
+    \item rasterski sustav koji služi za rasterizaciju poligona i bridova
+    \item prikazni sustav za prilagodbu prikaza rasterzirane slike
+\end{enumerate}
+U nastavku ćemo pobliže opisati svaki od navedenih koraka.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/graficki-protocni-sustav}
+    \caption{Grafički protočni sustav}
+    \label{fig:graficki-sustav}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+
+\subsection{Geometrijski sustav}
+Geometrijski sustav služi za prepoznavanje vrhova te izračunavanje osvijetljenja objekta (engl. \textit{Transform and Lighting}).
+Još jedna zadaća ovog sustava je transformacija pogleda u koordinatni sustav kamere.
+Kao što smo ranije spomenuli u poglavlju \ref{section:kin-krutog-tijela} svaki objekt u 3D prostoru ima položaj i orjentaciju unutar vlastitog koordinatnog sustava te unutar prostornog koordinatnog sustava.
+
+Geometrijski sustav tada transformira koordinate objekta iz prostornog koordinatnog sustava u koordinatni sustav kamere.
+Naravno naš koordinatni sustav zadan je u tri dimenzije dok je naša slika dvodimenzionalna.
+Tada je potrebno odrediti koordinate u 2D koordinate objekta iz njegovih 3D koordinata što nazivamo projekcija.
+
+\newpage
+\subsubsection{Projekcija}
+Projekciju čine sve metode koje preslikavaju točke 3D prostora u 2D prostor.
+Postoje dvije glavne vrste projekcija, a to su:
+\begin{itemize}
+    \item paralelna projekcija
+    \item perspektivna projekcija
+\end{itemize}
+
+Paralelna projekcija je jednostavnija metoda preslikavanja.
+Kao što i sam naziv govori, projektori, odnosno pravci pomoću kojih radimo projekciju, su međusobno paralelni.
+Projektori mogu biti okomiti na ravninu projekcije pa takvu vrstu paralelne projekcije nazivamo ortografska projekcija.
+Ukoliko projektori nisu okomiti, već se nalaze pod nekim kutom, tada se radi o kosoj projekciji.
+Primjer ortografske projekcije možemo vidjeti na slici \ref{fig:paralelna-projekcija} gdje preslikavamo pravokutnik u ravninu na visini označenoj s \textit{H}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/paralelna-projekcija}
+    \caption{Primjer paralelne projekcije}
+    \label{fig:paralelna-projekcija}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+\newpage
+
+Perspektivna projekcija je metoda projekcije koju većinom koristimo kod generiranja slika.
+Ova projekcija uvodi dva nova pojma, a to su očište i gledište.
+Očište je točka u kojoj se nalazi kamera, odnosno promatrač.
+Gledište predstavlja smjer u kojem gleda promatrač.
+
+Ova metoda projekcije proizvoljnu točku našeg promatranog objekta preslikava spajanjem točke s točkom gledišta.
+Sjecište pravca koji povezuje očište i promatranu točku s ravninom projekcije predstavlja našu preslikanu točku.
+Primjer ove projekcije možemo vidjeti na slici \ref{fig:perspektivna-projekcija}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/perspektivna-projekcija}
+    \caption{Primjer perspektivne projekcije}
+    \label{fig:perspektivna-projekcija}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+
+Na slici \ref{fig:perspektivna-projekcija-preslikavanje} možemo vidjeti isti primjer preslikavanja kao i na slici \ref{fig:paralelna-projekcija} samo korištenjem perspektivne projekcije.
+Vidimo kako u ovom slučaju, za razliku od prethodnog, \textit{x} i \textit{y} koordinate u našoj preslikanoj ravnini više neće imati jednake vrijednosti kao u početnoj ravnini.
+Ovo se dešava zbog kuta između pravca koji spaja ravninu i očište.
+Točka gledišta je u ovom primjeru ishodište koordinatnog sustava.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/prespektivna-projekcija-preslikavanje}
+    \caption{Primjer perspektivne projekcije}
+    \label{fig:perspektivna-projekcija-preslikavanje}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+
+\subsection{Rasterski sustav}
+Rasterski sustav služi za \textit{rasterizaciju} poligona i bridova našeg modela.
+\textit{Rasterizacija} je postupak kojim našu geometrijsku reprezentaciju objekta pretvaramo u niz piksela u matričnom obliku koji su pogodni za prikaz na računalu.
+Primjer rasteriziranog prikaza objekta možemo vidjeti na slici \ref{fig:rasterizirana-slika}
+Ovdje možemo primjetiti jednu neželjenju pojavu, a to je nazubljenje rubova.
+Zbog samog načina na koji objekt prikazan ovo je neizbježno, no problem je više izražen na manjim rezolucijama slike, dok je na većim rezolucijama jako teško primjetan.
+
+Rasterski sustav je također zadužen za operacije poput prikaza osvjetljenja te sjenčanja koje su veoma bitne kako bi naš objekt imao što stvarniju reprezentaciju na slici.
+Na kraju rasterski sustav zapisuje sliku u slikovnu prikaznu memoriju pomoću koje se onda prikazuje konačna slika na nekom prikaznog elementu.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=10cm]{img/rasterizirana-slika}
+    \caption{Rasterizirana slika}
+    \label{fig:rasterizirana-slika}
+\end{figure}
+\footnotetext{Preuzeto sa \url{https://en.wikipedia.org/wiki/Rasterisation}}
+
+\section{Model osvjetljenja}
+Model osvjetljenja predstavlja izračun inteziteta svjetlosti u promatranoj točki uz dodatni postupak sjenčanja koji osjenčava površine objekta i prostora.
+Ovaj postupak je veoma bitan kod generiranja slike našeg objekta jer doprinosi prikazu dubine prostora te omogućava realističniju reprezentaciju.
+Interakcija svjetlosti u prirodi je veoma kompleksna pojava te se osnove svakog modela osvjetljenja temelje na otkrićima iz područja optike.
+Tri su osnovna pristupa koja promatraju svojstva svjetlosti, a temelje se na geometrijskoj optici, fizikalnoj optici i kvantnoj optici.
+
+Geometrijska optika predstavlja svjetlost kao skup svjetlosnih zraka.
+Definira zakon pravocrtnog širenja svjetlosti, zakon odbijanja i zakon loma te je osnova u promatranju ponašanja svjetlosti.
+Fizikalna optika definira svjetlost kao elektromagnetsko zračenje, odnosno predstavlja svjetlost kao širenje tranzsverzalnog vala.
+Ovim pristupom objašnjavamo pojave kao što difrakcija i interferencija.
+Kvantna optika definira svjetlost kao skup čestica, odnosno fotona.
+Ovaj pristup definira frekvenciju i valnu duljinu svjetlosti te je veoma koristan kada promatramo sustav boja.
+
+Svi modeli osvjetljenja temeljeni su na prethodno spomenutim pristupima.
+Iako postoje veoma složeni modeli, najkorišteniji je i dalje Phongov model osvjetljenja koji smo i mi koristili u našem diplomskom radu.
+U nastavku ćemo pobliže opisati ovaj model.
+
+\subsection{Phongov model osvjetljenja}
+Phongov model osvjetljenja prikazuje osvjetljenje našeg objekta kao linearnu kombinaciju triju komponenti:
+\begin{itemize}
+    \item ambijentna komponenta
+    \item difuzna komponenta
+    \item zrcalna komponenta
+\end{itemize}
+Model također pretpostavlja da su svi izvori svjetlosti na slici točkasti izvori.
+
+Ambijentna komponenta predstavlja interackiju svjetlosti između objekata na našoj slici.
+Služi kako dijelovi slike koji nisu pod izravnim utjecajem svjetlosti i dalje budu osvjetljeni.
+U svojoj definiciji koristi konstantu $k_a$ ($0 \leq k_a \leq 1$) koja definira koliko će svjetlosti biti apsorbirano.
+Definiciju možemo vidjeti u formuli (\ref{eq:ambijentna-komp}) gdje $I_a$ predstavlja jakost svjetlosti koja dolazi do točke koju promatramo.
+\begin{equation}
+    I_g = k_a \cdot I_a
+    \label{eq:ambijentna-komp}
+\end{equation}
+
+Difuzna komponenta predstavlja intenzitet svijetlosti pri reflekciji od neke površine.
+Primjer kako određujemo ovu komponentu možemo vidjeti na slici \ref{fig:difuzna-svjetlost}.
+Jakost svjetlosti tada definiramo kao:
+\begin{equation}
+    I_d = I_i \cdot k_d \cdot cos(\theta)
+    \label{eq:difuzna-komp}
+\end{equation}
+U formuli (\ref{eq:difuzna-komp}) $I_i$ predstavlja intezitet izvora svjetlosti, $k_d$ predstavlja koeficijent refleksije, a $\theta$ predstavlja kut između izvora svjetlosti i normale površine na kojoj se nalazi promatrana točka.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/difuzna-svjetlost}
+    \caption{Određivanje difuzne komponente}
+    \label{fig:difuzna-svjetlost}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+
+Zrcalna komponenta svjetlosti, za razliku od difuzne, za izračun jakosti uzima u obzir položaj promatrača.
+Primjer kako određujemo ovu komponentu možemo vidjeti na slici \ref{fig:zrcalna-svjetlost}, a njenu definiciju u formuli (\ref{eq:zrcalna-komp}).
+\begin{equation}
+    I_s = I_i \cdot k_s \cdot cos^n(\alpha)
+    \label{eq:zrcalna-komp}
+\end{equation}
+$I_i$ predstavlja intezitet točkastog izvora, $k_s$ predstavlja koeficijent koji ovisi o materijalu površine, a $n$ predstavlja gruboću površine od koje se odbija svjetlost.
+Kako različite veličine parametra $n$ utječu na intezitet zrcalne svjetlosti možemo vidjeti na slici \ref{fig:phong-n-param}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/zrcalna-komponenta}
+    \caption{Određivanje zrcalne komponente}
+    \label{fig:zrcalna-svjetlost}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
+
+\newpage
+Konačno definiramo Phongov model osvjetljenja kao zbroj intenziteta iz ranije navedenih formula.
+Ukupan intezitet svjetlosti tada iznosi:
+\begin{equation}
+    I = I_g \cdot I_d \cdot I_s
+    \label{eq:phong-svjetlost}
+\end{equation}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/phong-n-values}
+    \caption{Utjecaj različitih vrijednost parametra $n$}
+    \label{fig:phong-n-param}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{book:irg}}
 
 %--- ZAKLJUČAK / CONCLUSION ----------------------------------------------------
 \chapter{Zaključak}
