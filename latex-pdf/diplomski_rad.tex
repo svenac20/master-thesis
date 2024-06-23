@@ -55,7 +55,7 @@
 
 \begin{zahvale}
   % Ovdje upišite zahvale / Write in the acknowledgment
-    OVDJE IDU ZAHVALE
+    mojoj prekrasnoj curi s velikim dupetom i juicy bodyodyodyem. nju jedinu volim. <333333 8===========D ona mi je sve i kupit cu joj prsten 2024
 \end{zahvale}
 
 
@@ -701,7 +701,6 @@ Definiciju možemo vidjeti u formuli (\ref{eq:ambijentna-komp}) gdje $I_a$ preds
     I_g = k_a \cdot I_a
     \label{eq:ambijentna-komp}
 \end{equation}
-
 Difuzna komponenta predstavlja intenzitet svijetlosti pri reflekciji od neke površine.
 Primjer kako određujemo ovu komponentu možemo vidjeti na slici \ref{fig:difuzna-svjetlost}.
 Jakost svjetlosti tada definiramo kao:
@@ -751,6 +750,115 @@ Ukupan intezitet svjetlosti tada iznosi:
 \end{figure}
 \footnotetext{Preuzeto sa \cite{book:irg}}
 
+\chapter{Neuronske mreže i NeRF model}
+Ukoliko nemamo 3D reprezentaciju našeg promatranog manipulatora, nego samo njegove 2D reprezentacije, tada za dobivanje 3D modela robota možemo iskoristiti NeRF model.
+Stanje našeg manipulatora određeno je njegovom konfiguracijom zglobova te upravo tu činjenicu možemo iskoristiti kod učenja našeg modela.
+Ovakav pristup iskoristio se u \cite{nerfSelfModelling} te su autori postigali veoma dobre rezultate kod opisivanja modela manipulatora.
+U nastavku ćemo detaljnije objasniti na koji način rade neuronske mreže i NeRF modeli.
+
+\section{Neuronske mreže}
+Neuronska mreža je masivno paralelni distribuirani procesor koji je dobar za pamćenje iskustvenog znanja~\cite{defNeuronske}.
+Ime je dobila zbog sličnosti rada ljudskom mozgu.
+Sastoji se od puno manjih jedinica (neurona) koji znanje stječu kroz proces učenja.
+Mreža je obično podijeljenja na 3 dijela, odnosno ulazni, skriveni i izlazni sloj.
+
+Neki od najvažnijih svojstava neuronskih mreža su:
+\begin{itemize}
+    \item Nelinearnost
+    \item Preslikavanja s ulaza na izlaz
+    \item Adaptivnost
+    \item Tolerancija na greške
+    \item Analogija s neuronskim sustavom čovjeka
+\end{itemize}
+Primjer osnovnog modela neurona možemo vidjeti na slici \ref{fig:model-neurona}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/model-neurona}
+    \caption{Model neurona}
+    \label{fig:model-neurona}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{defNeuronske}}
+Neuron se sastoji od određenog broja ulaza $x_1, x_2, ..., x_p$ koji se množe s odgovarajućim težinama $w_{k1}, w_{k2}, ..., w_{kp}$.
+Ulaz $u_k$ računa se kao suma svih umnožaka.
+Suma $u_k$ se tada predaje aktivacijskoj funkciji koja sadrži parametar $\theta_k$ te konačno dobivamo izlaz aktivacijske funkcije, odnosno izlaz neurona $y_k$.
+
+Aktivacijske funkcije služe za postizanje ranije spomenutog svojstva nelinearnosti.
+Neke od najčešće korištenih funkcija su funkcija zglobnice možemo vidjeti u formuli (\ref{eq:aktivacijske-funkcije}).
+Najčešće za aktivacijsku funkciju koristimo funkciju zglobnice, označenu s $g_x$.
+Druga najčešće korištena funkcija je sigmoida, označena s $\sigma(x)$.
+\begin{equation}
+    g(x) = max(0,x) \hspace{2cm} \sigma(x) = (1 + exp(-x))^{-1}
+    \label{eq:aktivacijske-funkcije}
+\end{equation}
+Aktivacijske funkcije sadrže i prag $\sigma_k$ koji služi kako bismo, ovisno o problemu koji rješavamo, prilagodili izlaz funkcije.
+Uzmemo li sigmoidu kao izabranu aktivacijsku funkciju, tada je naš izlaz ograničen na interval $[0,1]$, te nam tu pomaže prag kako bismo taj izlaz postavili na željeni interval.
+Bitno svojstvo aktivacijske funkcije je njena derivabilnost, koja omogućuje propagaciju greške kroz sve slojeve naše neuronske mreže te tako omogućava učenje kroz iteracije.
+\newpage
+\noindent Proces učenja neuronske mreže sastoji se od sljedećih osnovnih koraka:
+\begin{enumerate}
+    \item prikupljanje i transformacija podataka
+    \item definiranje arhitekture mreže, odnosno broja i vrste slojeva
+    \item inicijalizacija težina
+    \item unaprijedni prolaz
+    \item izračun pogreške i unatražni prolaz (\textit{backpropagation})
+    \item ažuriranje težina
+\end{enumerate}
+Ovaj postupak ponavljamo kroz velik broj iteracija te za cilj imamo generalizaciju nekog problema koji rješavamo.
+Ne želimo da naša neuronska mreža daje dobre rezultate samo na već poznatim primjerima, nego i na novim primjerima koji još nisu korišteni.
+
+Kod NeRF mreža cilj je upravo suprotan, tamo je cilj prenaučiti mrežu i dobiti 3D reprezentaciju točno onog objekta čije smo slike koristili tijekom učenja modela.
+U nastavku ćemo objasniti ovaj neklasičan pristup neuronskim mrežama.
+\section{NeRF model}
+\textit{Neural radiance fields} (NeRF) je vrsta neuronske mreže koja općenito služi za parametrizaciju neke vrste signala.
+Najčešće se koristi za generiranje 3D modela objekta, no može parametrizirati i bilo koji drugi signal kao što su vizualni ili slušni.
+Kao model je predstavljen 2020. godine~\cite{mildenhall2020nerf}, a veliku je popularnost stekao 2022. godine kada se uvelike počeo koristiti u raznim znanstevnim istraživanjima.
+
+Ovaj model je veoma jednostavne arhitekture.
+Naravno, postoje njegove mnoge različite implementacije, no mi ćemo se fokusirati na arhitekturu prikazanu u originalnom članku\cite{mildenhall2020nerf}.
+NeRF je zapravo obična neuronska mreža s aktivacijskim funkcijama zglobnice.
+Ulaz u mrežu je 5D vektor koji se sastoji od 3D položaja $x = (x,y,z)$ i 2D očišta $(\theta, \phi)$.
+Izlaz iz mreže je 3D vektor koji predstavlja boju $c = (r,g,b)$ i gustoću $\sigma$.
+Arhitekturu mreže možemo vidjeti na slici \ref{fig:nerf-architecture}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=14cm]{img/nerf-architecture}
+    \caption{Arhitetkura NeRF modela}
+    \label{fig:nerf-architecture}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{nerfExplained}}
+
+Za razliku od drugih dubokih modela koji zahtjevaju velik broj slika, ovaj model zbog svoje prirode kreira kvalitetne 3D reprezentacije sa realtivno malim brojem primjera.
+Ovo je slučaj jer svaka točka naše slike predstavlja pojedini ulaz u mrežu.
+
+Na slici \ref{fig:nerf-rays} možemo vidjeti kako je zapravo ulaz u našu mrežu zraka koju generiramo iz svake točke slike.
+Model za neku predanu zraku generira funkciju gustoće koja prikazuje postoji li naš objekt na određenoj točki u prostoru.
+Ponovnim generiranjem slike iz dobivenih funkcija gustoće možemo izračunati gubitak u odnosu na originalnu sliku te tako ostvarujemo učenje modela.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[height=5cm]{img/nerf-rays}
+    \caption{Proces učenja NeRF modela}
+    \label{fig:nerf-rays}
+\end{figure}
+\footnotetext{Preuzeto sa \cite{mildenhall2020nerf}}
+\newpage
+Ono zbog čega je ovaj model stekao tako veliku popularnost je njegova primjena kod spremanja 3D modela različitih objekata.
+Umjesto prikazivanja objekta putem poligona te spremanja u obliku \textit{mesh} datoteka, objekt prikazujemo putem cjelokupne neuronske mreže, odnosno njenih težina.
+
+Osim što je ovakav način zapisa puno kompaktniji također je i znatno brži.
+Ovime otvaramo mogućnost prikazivanja scena objekata iz različitih kuteva u stvarnom vremenu što omogućava korištenje u raznim slučajevima, kao što je na primjer proširena stvarnost.
+Autori jednog znanstvenog rada\cite{nerfSelfModelling} su čak otišli i korak dalje.
+Za učenje 3D modela manipulatora koristeći NeRF nisu koristili slike iz različitih kuteva, nego su taj parametar zamijenili konfiguracijom robota.
+Tada su za kompletan proces učenja potrebne samo slike s jedne stacionarne kamere te različite konfiguracije robota.
+Ovaj pristup se pokazao veoma dobrim kod predikcije
+
+\chapter{Korištene tehnologije i alati}
+Napredak tehnologije i razvoj različitih paketa olakšali su nam rješavanje kompleksnih problema kao što su nastajanje slike te analitička inverzna kinematika.
+U nastavku ćemo opisati tehnologije koje smo koristili.
+Programsku implementaciju izradili smo pomoću programskog jezika Python upravo zbog njegove široke primjene te raznih biblioteka koje nudi.
+Biblioteku PyTorch3D koristili smo kod generiranja slika
+Opisat ćemo programski jezik Python te njegove pakete koji su nam pomogli prilikom generiranja 2D reprezentacije našeg robota.
+
 %--- ZAKLJUČAK / CONCLUSION ----------------------------------------------------
 \chapter{Zaključak}
 \label{pog:zakljucak}
@@ -783,7 +891,6 @@ Ukupan intezitet svjetlosti tada iznosi:
 \begin{abstract}
   Enter the abstract in English.
   
-  \blindtext 
 \end{abstract}
 
 \begin{keywords}
@@ -795,9 +902,6 @@ Ukupan intezitet svjetlosti tada iznosi:
 
 % Sva poglavlja koja slijede će biti označena slovom i riječi privitak / All following chapters will be denoted with an appendix and a letter
 \backmatter
-
-
-\Blindtext
 
 
 \end{document}
