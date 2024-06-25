@@ -4,7 +4,7 @@ from EndEffectorDataset import EndEffectorDataset
 import inverse_kinematics_solver.franka_ik as ik
 import torch
 
-def generate_robot_configurations(N, seed=1234, num_base_rotations=4):
+def generate_robot_configurations(N, datasetPath, seed=1234, num_base_rotations=4):
   np.random.seed(seed)
 
   # [N, 4, 4]
@@ -33,4 +33,4 @@ def generate_robot_configurations(N, seed=1234, num_base_rotations=4):
   result_configurations_tensor = torch.stack(result_configurations)
 
   dataset = EndEffectorDataset(valid_poses_tensor, result_configurations_tensor)
-  torch.save(dataset, 'src/generated-dataset/ee-configurations.pt')
+  torch.save(dataset, datasetPath)

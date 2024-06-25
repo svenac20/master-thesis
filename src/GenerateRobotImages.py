@@ -21,19 +21,19 @@ def generate_3d_images(args, configuration):
 	else:
 			device = torch.device("cpu")
 
-	renderer = create_renderer(args, device, 90, 0)
+	renderer, cameras = create_renderer(args, device, 90, 0)
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
 
 	robot_mesh = robot_renderer.get_robot_mesh(configuration)
 	images = renderer(robot_mesh)
 
-	plt.figure(figsize=(10, 10))
-	plt.axis("off")
-	plt.imshow(images[0,..., :3].cpu().numpy())
-	print(f"Generating picture for configuration: {configuration}")
-	plt.savefig(f"{args.images_folder}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
-	plt.close()
+	# plt.figure(figsize=(10, 10))
+	# plt.axis("off")
+	return images[0,..., :3], cameras
+	# print(f"Generating picture for configuration: {configuration}")
+	# plt.savefig(f"{args.images_folder}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
+	# plt.close()
 
 
 
@@ -57,7 +57,7 @@ def create_renderer(args, device, elev, azim):
 		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
 	)
 
-	return renderer
+	return renderer, cameras
 
 
 def get_mesh_files(args):
