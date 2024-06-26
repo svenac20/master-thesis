@@ -28,12 +28,20 @@ def generate_3d_images(args, configuration):
 	robot_mesh = robot_renderer.get_robot_mesh(configuration)
 	images = renderer(robot_mesh)
 
-	# plt.figure(figsize=(10, 10))
-	# plt.axis("off")
-	return images[0,..., :3], cameras
-	# print(f"Generating picture for configuration: {configuration}")
-	# plt.savefig(f"{args.images_folder}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
-	# plt.close()
+	plt.figure(figsize=(10, 10))
+	plt.axis("off")
+	#return images[0,..., :3], cameras
+	print(f"Generating picture for configuration: {configuration}")
+	plt.savefig(f"{args.images_folder}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
+	plt.close()
+
+def generate_camera_angles():
+	angles = []
+	for i in range(20):
+		elev = np.random.uniform(0, 360)
+		azim = np.random.uniform(0, 360)
+		angles.append((elev, azim))
+	return angles
 
 
 
