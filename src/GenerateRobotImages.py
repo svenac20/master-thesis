@@ -8,6 +8,7 @@ import torch
 from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, BlendParams, RasterizationSettings, \
 	PointLights, MeshRenderer, MeshRasterizer, SoftPhongShader
 
+from ImageCameraDataset import RobotImageDataset
 from PandaArm import PandaArm
 from Utils import setImageName
 from RobotMeshRenderer import RobotMeshRenderer
@@ -21,28 +22,40 @@ def generate_3d_images(args, configuration):
 	else:
 			device = torch.device("cpu")
 
-	renderer, cameras = create_renderer(args, device, 90, 0)
+	
+	camera_angles = generate_camera_angles()
+	images = []
+	cameras = []
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
+	
+	for i, (elev, azim) in enumerate(camera_angles):
+		robot_mesh = robot_renderer.get_robot_mesh(configuration)
+		renderer, camera = create_renderer(args, device, elev, azim)
+		image = renderer(robot_mesh)
+		
+		img = image[0, ..., :3].cpu().numpy()
+		images.append(img)
+		cameras.append(camera)
 
-	robot_mesh = robot_renderer.get_robot_mesh(configuration)
-	images = renderer(robot_mesh)
+		plt.figure(figsize=(10, 10))
+		plt.axis("off")
+		print(f"Generating picture for configuration: {configuration}, camera angle: {i}")
+		plt.imshow(img)
+		img_name = f"{args.images_folder}/{setImageName(configuration)}_angle_{i}.png"
+		plt.savefig(img_name, transparent=True, bbox_inches='tight', pad_inches=0)
+		plt.close()
 
-	plt.figure(figsize=(10, 10))
-	plt.axis("off")
-	#return images[0,..., :3], cameras
-	print(f"Generating picture for configuration: {configuration}")
-	plt.savefig(f"{args.images_folder}/{setImageName(configuration)}.png", transparent=True, bbox_inches='tight', pad_inches=0)
-	plt.close()
+	dataset = RobotImageDataset(images=images, cameras=cameras)
+	torch.save(dataset, "images-camera-pairs.pth")
 
-def generate_camera_angles():
+def generate_camera_angles(n=100):
 	angles = []
-	for i in range(20):
+	for i in range(n):
 		elev = np.random.uniform(0, 360)
 		azim = np.random.uniform(0, 360)
 		angles.append((elev, azim))
 	return angles
-
 
 
 def create_renderer(args, device, elev, azim):

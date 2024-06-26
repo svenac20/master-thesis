@@ -71,44 +71,46 @@ if __name__ == '__main__':
 	if (not os.path.exists(os.path.join(base_dir, args.dataset))):
 		generate_robot_configurations(5000, args.dataset)
 
-	# if (os.path.exists(os.path.join("tinynerf_model.pth"))):
-	# 	testModel(args)
+	if (os.path.exists(os.path.join("tinynerf_model.pth"))):
+		testModel(args)
 
 	dataset = torch.load(args.dataset)
 	model = TinyNeRF(num_dof=7)
 	optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
-	criterion = nn.MSELoss()
-	for (ee_pose, configuration) in dataset:
-		image, camera = generate_3d_images(args,configuration.numpy())
-		H, W = image.shape[0:2]
-		extrinsics = get_camera_extrinsics(camera).cuda(device=device)
-		K = camera.get_full_projection_transform().get_matrix()[0]
+	criterion = nn.ms()
+	for epoch in range(10):
+		for (ee_pose, configuration) in dataset:
+			image, camera = generate_3d_images(args,configuration.numpy())
+			H, W = image.shape[0:2]
+			extrinsics = get_camera_extrinsics(camera).cuda(device=device)
+			K = camera.get_full_projection_transform().get_matrix()[0]
 
-		rays_o, rays_d = get_rays(H, W, K, extrinsics)
-		rays = torch.cat([rays_o, rays_d], dim=-1).cuda(device)
-		
-		# Forward pass
-		configuration = configuration.reshape(1,7).cuda(device)
-		raw = model(rays, configuration)
-		rgb = raw[..., :3].reshape(H, W, 3).cuda(device)
-		
-		# f, axarr = plt.subplots(2,1) 
+			rays_o, rays_d = get_rays(H, W, K, extrinsics)
+			rays = torch.cat([rays_o, rays_d], dim=-1).cuda(device)
+			
+			# Forward pass
+			configuration = configuration.reshape(1,7).cuda(device)
+			raw = model(rays, configuration)
+			rgb = raw[..., :3].reshape(H, W, 3).cuda(device)
+			
+			# f, axarr = plt.subplots(2,1) 
 
-		# # use the created array to output your multiple images. In this case I have stacked 2 images vertically
-		# axarr[0].imshow(rgb.cpu().detach().numpy())
-		# axarr[1].imshow(image.cpu().numpy())
+			# # use the created array to output your multiple images. In this case I have stacked 2 images vertically
+			# axarr[0].imshow(rgb.cpu().detach().numpy())
+			# axarr[1].imshow(image.cpu().numpy())
 
-		# plt.show()
-		# plt.close()
-		# Compute loss
-		loss = criterion(rgb, image)
-		
-		# Backpropagation
-		optimizer.zero_grad()
-		loss.backward()
-		optimizer.step()
-		
-		print(f"Loss:{loss.item()}")
+			# plt.show()
+			# plt.close()
+			# Compute loss
+			loss = criterion(image, rgb)
+			
+			# Backpropagation
+			optimizer.zero_grad()
+			loss.backward()
+			optimizer.step()
+			
+			print(f"Loss:{loss.item()}")
+
 
 	torch.save(model.state_dict(), 'tinynerf_model.pth')
 
