@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras, BlendParams, RasterizationSettings, \
-	PointLights, MeshRenderer, MeshRasterizer, SoftPhongShader
+	PointLights, MeshRenderer, MeshRasterizer, SoftPhongShader, SoftSilhouetteShader
 
 from ImageCameraDataset import RobotImageDataset
 from PandaArm import PandaArm
@@ -26,27 +26,32 @@ def generate_3d_images(args, configuration):
 	camera_angles = generate_camera_angles()
 	images = []
 	cameras = []
+	silouhettes = []
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
 	
 	for i, (elev, azim) in enumerate(camera_angles):
 		robot_mesh = robot_renderer.get_robot_mesh(configuration)
-		renderer, camera = create_renderer(args, device, elev, azim)
-		image = renderer(robot_mesh)
-		
+		renderer_rgb, renderer_silhouette ,camera = create_renderer(args, device, elev, azim)
+
+		image = renderer_rgb(robot_mesh)
 		img = image[0, ..., :3].cpu().numpy()
+
+		silhouette_images = renderer_silhouette(robot_mesh)
+		silhouette_binary = (silhouette_images[..., 3] > 1e-4).float().squeeze(0)
+
 		images.append(img)
 		cameras.append(camera)
+		silouhettes.append(silhouette_binary)
 
 		plt.figure(figsize=(10, 10))
-		plt.axis("off")
 		print(f"Generating picture for configuration: {configuration}, camera angle: {i}")
 		plt.imshow(img)
-		img_name = f"{args.images_folder}/{setImageName(configuration)}_angle_{i}.png"
+		img_name = f"{args.images_folder}/{setImageName(configuration)}_angle_{10223131}.png"
 		plt.savefig(img_name, transparent=True, bbox_inches='tight', pad_inches=0)
 		plt.close()
 
-	dataset = RobotImageDataset(images=images, cameras=cameras)
+	dataset = RobotImageDataset(images=images, silhouette=silouhettes, cameras=cameras)
 	torch.save(dataset, "images-camera-pairs.pth")
 
 def generate_camera_angles(n=100):
@@ -70,7 +75,7 @@ def create_renderer(args, device, elev, azim):
 		max_faces_per_bin=100000,
 	)
 	lights = PointLights(device=device, location=((-2.0, -2.0, -2.0),))
-	renderer = MeshRenderer(
+	renderer_rgb = MeshRenderer(
 		rasterizer=MeshRasterizer(
 			cameras=cameras,
 			raster_settings=raster_settings
@@ -78,7 +83,24 @@ def create_renderer(args, device, elev, azim):
 		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
 	)
 
-	return renderer, cameras
+	 # Rasterization settings for silhouette rendering
+	sigma = 1e-4
+	raster_settings_silhouette = RasterizationSettings(
+			image_size=(args.width, args.height), 
+			blur_radius=np.log(1.0 / 1e-4 - 1.0) * sigma,
+			faces_per_pixel=100,
+			max_faces_per_bin=100000,
+	)
+	# Silhouette renderer
+	renderer_silhouette = MeshRenderer(
+			rasterizer=MeshRasterizer(
+					cameras=cameras, 
+					raster_settings=raster_settings_silhouette
+			),
+			shader=SoftSilhouetteShader(),
+	)
+
+	return renderer_rgb, renderer_silhouette, cameras
 
 
 def get_mesh_files(args):

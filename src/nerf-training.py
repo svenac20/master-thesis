@@ -46,7 +46,7 @@ render_size = 200*2
 # Our rendered scene is centered around (0,0,0) 
 # and is enclosed inside a bounding box
 # whose side is roughly equal to 3.0 (world units).
-volume_extent_world = 3.0
+volume_extent_world = 100.0
 
 # 1) Instantiate the raysamplers.
 
@@ -93,17 +93,18 @@ dataset = torch.load("images-camera-pairs.pth")
 
 target_images = []
 target_cameras = []
-for image,camera in dataset:
+target_silhouettes = []
+a = 1
+for image,silhouette,camera in dataset:
   target_images.append(image)
   target_cameras.append(camera)
+  target_silhouettes.append(silhouette.cpu().numpy())
 
 target_images = torch.as_tensor(target_images).to(device)
+target_silhouettes = torch.as_tensor(target_silhouettes).to(device)
 renderer_grid = renderer_grid.to(device)
 renderer_mc = renderer_mc.to(device)
 
-
-# Set the seed for reproducibility
-torch.manual_seed(1)
 
 # Instantiate the radiance field model.
 neural_radiance_field = NeuralRadianceField().to(device)
@@ -117,9 +118,8 @@ optimizer = torch.optim.Adam(neural_radiance_field.parameters(), lr=lr)
 batch_size = 6
 
 # Init the loss history buffers.
-loss_arr = []
 n_iter = 10000
-criterion = nn.MSELoss()
+loss_history_color, loss_history_sil = [], []
 
 for iteration in range(n_iter):
   if iteration == round(n_iter * 0.75):
@@ -141,6 +141,15 @@ for iteration in range(n_iter):
       rendered_images_silhouettes.split([3, 1], dim=-1)
   )
 
+  silhouettes_at_rays = sample_images_at_mc_locs(
+        target_silhouettes[batch_idx, ..., None], 
+        sampled_rays.xys
+    )
+  sil_err = huber(
+        rendered_silhouettes, 
+        silhouettes_at_rays,
+    ).abs().mean()
+
   colors_at_rays = sample_images_at_mc_locs(
         target_images[batch_idx].to(device), 
         sampled_rays.xys
@@ -150,19 +159,21 @@ for iteration in range(n_iter):
       colors_at_rays,
   ).abs().mean()
   
-  loss = color_err
+  loss = color_err + sil_err
     
-  loss_arr.append(loss.item())
+  loss_history_color.append(float(color_err))
+  loss_history_sil.append(float(sil_err))
+
   if iteration % 10 == 0:
         print(
             f'Iteration {iteration:05d}:'
             + f' loss color = {float(color_err):1.2e}'
+            + f' loss sill = {float(sil_err):1.2e}'
         )
   loss.backward()
   optimizer.step()
 
 
-  torch.cuda.empty_cache()
   if iteration % 100 == 0:
         show_idx = torch.randperm(len(target_cameras))[:1]
         show_cameras = getBatchCameraFromIndexes(target_cameras, show_idx, device)
@@ -171,5 +182,7 @@ for iteration in range(n_iter):
             renderer_grid=renderer_grid,
             camera=show_cameras,
             target_image=target_images[show_idx][0].to(device),
-            loss_history_color=loss_arr
+            target_silhouette=target_silhouettes[show_idx][0].to(device),
+            loss_history_color=loss_history_color,
+            loss_history_sil=loss_history_sil
         )

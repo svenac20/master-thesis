@@ -367,7 +367,9 @@ def show_full_render(
     renderer_grid,
     camera,
     target_image, 
+    target_silhouette,
     loss_history_color,
+    loss_history_sil,
 ):
     """
     This is a helper function for visualizing the
@@ -398,17 +400,20 @@ def show_full_render(
         )
         
     # Generate plots.
-    fig, ax = plt.subplots(2, 2, figsize=(15, 10))
+    fig, ax = plt.subplots(2, 3, figsize=(15, 10))
     ax = ax.ravel()
     clamp_and_detach = lambda x: x.clamp(0.0, 1.0).cpu().detach().numpy()
     ax[0].plot(list(range(len(loss_history_color))), loss_history_color, linewidth=1)
     ax[1].imshow(clamp_and_detach(rendered_image))
-    ax[2].imshow(clamp_and_detach(target_image))
+    ax[2].imshow(clamp_and_detach(rendered_silhouette[..., 0]))
+    ax[3].plot(list(range(len(loss_history_sil))), loss_history_sil, linewidth=1)
+    ax[4].imshow(clamp_and_detach(target_image))
+    ax[5].imshow(clamp_and_detach(target_silhouette))
     for ax_, title_ in zip(
         ax,
         (
             "loss color", "rendered image", 
-            "target image",
+            "target image", "loss sill"
         )
     ):
         if not title_.startswith('loss'):
