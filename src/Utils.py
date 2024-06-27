@@ -5,6 +5,34 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from scipy.spatial.transform import Rotation as R
+from pytorch3d.renderer import (
+    FoVPerspectiveCameras, 
+    NDCMultinomialRaysampler,
+    MonteCarloRaysampler,
+    EmissionAbsorptionRaymarcher,
+    ImplicitRenderer,
+    RayBundle,
+    ray_bundle_to_ray_points,
+)
+
+import os
+
+import numpy as np
+import torch
+from pytorch3d.io import load_objs_as_meshes
+from pytorch3d.renderer import (
+    BlendParams,
+    FoVPerspectiveCameras,
+    look_at_view_transform,
+    MeshRasterizer,
+    MeshRenderer,
+    PointLights,
+    RasterizationSettings,
+    SoftPhongShader,
+    SoftSilhouetteShader,
+)
+
+
 
 def create_powerset(iterable):
 	s = list(iterable)
@@ -168,3 +196,37 @@ def generate_base_rotation_joint_angles(number_of_rotations):
 	joints[:, 0] = torch.as_tensor(base_rotations)
 
 	return joints
+
+def getBatchCameraFromIndexes(target_cameras, batch_idx, device):
+	R_list = []
+	T_list = []
+	znear_list = []
+	zfar_list =[]
+	aspect_ratio_list = []
+	fov_list = []
+
+	for index in batch_idx:
+		camera = target_cameras[index]
+		R_list.append(camera.R)
+		T_list.append(camera.T)
+		znear_list.append(camera.znear)
+		zfar_list.append(camera.zfar)
+		aspect_ratio_list.append(camera.aspect_ratio)
+		fov_list.append(camera.fov)
+
+	R_tensor = torch.cat(R_list, dim=0)
+	T_tensor = torch.cat(T_list, dim=0)
+	znear = torch.cat(znear_list, dim=0)
+	zfar = torch.cat(zfar_list, dim=0)
+	aspect_ratio = torch.cat(aspect_ratio_list, dim=0)
+	fov = torch.cat(fov_list, dim=0)
+
+	return FoVPerspectiveCameras(
+				R = R_tensor,
+				T = T_tensor,
+				znear = znear,
+        zfar = zfar,
+        aspect_ratio = aspect_ratio,
+        fov = fov,
+        device = device
+		)
