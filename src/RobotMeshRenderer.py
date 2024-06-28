@@ -5,9 +5,6 @@ from pytorch3d.structures import Meshes
 from pytorch3d.renderer import Textures
 
 class RobotMeshRenderer():
-	"""
-    Class that render robot mesh with differentiable renderer
-    """
 
 	def __init__(self, robot, mesh_files, device):
 

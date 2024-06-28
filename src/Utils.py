@@ -15,6 +15,7 @@ from pytorch3d.renderer import (
     ray_bundle_to_ray_points,
 )
 
+from IPython import display
 import os
 
 import numpy as np
@@ -275,3 +276,68 @@ def image_grid(
             ax.imshow(im[..., 3])
         if not show_axes:
             ax.set_axis_off()
+
+
+def show_full_render(
+    neural_radiance_field, 
+    renderer_grid,
+    camera,
+    target_image, 
+    target_silhouette,
+    loss_history_color,
+    loss_history_sil,
+):
+    """
+    This is a helper function for visualizing the
+    intermediate results of the learning. 
+    
+    Since the `NeuralRadianceField` suffers from
+    a large memory footprint, which does not let us
+    render the full image grid in a single forward pass,
+    we utilize the `NeuralRadianceField.batched_forward`
+    function in combination with disabling the gradient caching.
+    This chunks the set of emitted rays to batches and 
+    evaluates the implicit function on one batch at a time
+    to prevent GPU memory overflow.
+    """
+    
+    # Prevent gradient caching.
+    with torch.no_grad():
+        # Render using the grid renderer and the
+        # batched_forward function of neural_radiance_field.
+        rendered_image_silhouette, _ = renderer_grid(
+            cameras=camera, 
+            volumetric_function=neural_radiance_field.batched_forward
+        )
+        # Split the rendering result to a silhouette render
+        # and the image render.
+        rendered_image, rendered_silhouette = (
+            rendered_image_silhouette[0].split([3, 1], dim=-1)
+        )
+        
+    # Generate plots.
+    fig, ax = plt.subplots(2, 3, figsize=(15, 10))
+    ax = ax.ravel()
+    clamp_and_detach = lambda x: x.clamp(0.0, 1.0).cpu().detach().numpy()
+    ax[0].plot(list(range(len(loss_history_color))), loss_history_color, linewidth=1)
+    ax[1].imshow(clamp_and_detach(rendered_image))
+    ax[2].imshow(clamp_and_detach(rendered_silhouette[..., 0]))
+    ax[3].plot(list(range(len(loss_history_sil))), loss_history_sil, linewidth=1)
+    ax[4].imshow(clamp_and_detach(target_image))
+    ax[5].imshow(clamp_and_detach(target_silhouette))
+    for ax_, title_ in zip(
+        ax,
+        (
+            "loss color", "rendered image", 
+            "target image", "loss sill"
+        )
+    ):
+        if not title_.startswith('loss'):
+            ax_.grid("off")
+            ax_.axis("off")
+        ax_.set_title(title_)
+    fig.canvas.draw(); fig.show()
+    display.clear_output(wait=True)
+    display.display(fig)
+    
+    return fig
