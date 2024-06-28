@@ -30,9 +30,16 @@ def generate_3d_images(args, configuration):
 	robot = PandaArm(args.urdf_file)
 	robot_renderer = RobotMeshRenderer(robot, mesh_files, device)
 	
-	for i, (elev, azim) in enumerate(camera_angles):
-		robot_mesh = robot_renderer.get_robot_mesh(configuration)
-		renderer_rgb, renderer_silhouette ,camera = create_renderer(args, device, elev, azim)
+	robot_mesh = robot_renderer.get_robot_mesh(configuration)
+	verts = robot_mesh.verts_packed()
+	N = verts.shape[0]
+	center = verts.mean(0)
+	scale = max((verts - center).abs().max(0)[0])
+	robot_mesh.offset_verts_(-(center.expand(N, 3)))
+	robot_mesh.scale_verts_((1.0 / float(scale)))
+
+	for i, azim in enumerate(camera_angles):
+		renderer_rgb, renderer_silhouette ,camera = create_renderer(args, device, 90, azim)
 
 		image = renderer_rgb(robot_mesh)
 		img = image[0, ..., :3].cpu().numpy()
@@ -45,29 +52,24 @@ def generate_3d_images(args, configuration):
 		silouhettes.append(silhouette_binary)
 
 		plt.figure(figsize=(10, 10))
-		print(f"Generating picture for configuration: {configuration}, camera angle: {i}")
+		print(f"Generating picture for configuration: {configuration}, camera angle: {azim}")
+		plt.axis("off")
 		plt.imshow(img)
-		img_name = f"{args.images_folder}/{setImageName(configuration)}_angle_{10223131}.png"
+		img_name = f"{args.images_folder}/{setImageName(configuration)}_angle_{azim}.png"
 		plt.savefig(img_name, transparent=True, bbox_inches='tight', pad_inches=0)
 		plt.close()
 
 	dataset = RobotImageDataset(images=images, silhouette=silouhettes, cameras=cameras)
 	torch.save(dataset, "images-camera-pairs.pth")
 
-def generate_camera_angles(n=100):
-	angles = []
-	for i in range(n):
-		elev = np.random.uniform(0, 360)
-		azim = np.random.uniform(0, 360)
-		angles.append((elev, azim))
-	return angles
+def generate_camera_angles(n=40):
+	return np.random.uniform(-180, 180, size=n)
 
 
 def create_renderer(args, device, elev, azim):
-	camera_distance = np.random.uniform(1.3, 2)
-	R, T = look_at_view_transform(dist=camera_distance, elev=elev, azim=azim)
+	R, T = look_at_view_transform(dist=2, elev=30, azim=azim, up=((0,0,1),))
 	cameras = FoVPerspectiveCameras(device=device, R=R, T=T)
-	blend_params = BlendParams(sigma=1e-8, gamma=1e-8)
+	blend_params = BlendParams(sigma=1e-8, gamma=1e-8, background_color=(0.0,0.0,0.0))
 	raster_settings = RasterizationSettings(
 		image_size=(args.width, args.height),
 		blur_radius=np.log(1. / 1e-4 - 1.) * blend_params.sigma,
@@ -80,7 +82,7 @@ def create_renderer(args, device, elev, azim):
 			cameras=cameras,
 			raster_settings=raster_settings
 		),
-		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights)
+		shader=SoftPhongShader(device=device, cameras=cameras, lights=lights, blend_params=blend_params)
 	)
 
 	 # Rasterization settings for silhouette rendering
