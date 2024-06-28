@@ -530,6 +530,7 @@ Generiranje slike je veoma složen postupak koji zahtjeva puno različitih matem
 Prvo ćemo opisati kako naše 3D objekte predstavljamo putem poligona te ćemo nakon toga objasniti grafički protočni sustav.
 
 \section{Poligoni i \textit{mesh} datoteke}
+\label{pog:poligoni-mesh}
 Prvi korak u generiranju slike nekog 3D objekta je njegov prikaz na računalu.
 Cilj nam je nad reprezentacijom tog objekta izvršavati razne matematičke operacije i geometrijske transformacije.
 Zbog toga nam je korisno da naš objekt bude u obliku pogodnom za računanje, ali također želimo i sačuvati sve informacije o njegovom obliku kako ga ne bismo krivo prikazali.
@@ -881,8 +882,45 @@ Primjer ove funkcionalnosti možemo vidjeti na slici \ref{fig:python-varijable} 
     \label{fig:python-varijable}
 \end{figure}
 
-Druga velika razlika je
+Druga velika razlika je izostavljanje vitičastih zagrada prilikom pisanja koda, te se kontrola izvođenja koda temelji na indentaciji.
 
+Python je zbog svoje duge povijesti i prilagodljivosti na razne probleme omogućio primjenu u raznim poljima.
+Korišten je u izradi Web stranica, u analizi podataka, računalnom vidu te dubokom i strojnom učenju .
+Zbog svih tih primjena pristuan je i veliki broj bibiloteka koje omogućavaju lakše ostvarivanje ciljeva.
+
+Bibloteka na koju smo se najviše oslanjali prilikom izrade ovog diplomskog rada je PyTorch3D te ćemo ju ukratko opisati u nastavku.
+\section{PyTorch3D}
+PyTorch3D je bibloteka koju je razvio Facebook kako bi omogućili lakše operacije i upravljanje kod 3D obrade podataka.
+Ova bibloteka pomaže kod razvoja dubokih modela pomoću 3D podataka, 3D rekonstrukcije te renderinga slike.
+Koristili smo ju za obradu naših \textit{mesh} datoteka te nam je ova biblioteka omogućila učitavanje tih datoteka te izvršavanje potrebnih operacija.
+Najviše nam je pomogla kod renderiranja 2D slika našeg manipulatora.
+Ova biblioteka je također optimizirana za rad s grafičkim karticama te tako omogućava znatno brže računanje.
+\newpage
+
+Primarni objekti koje smo koristili prilikom naše implementacije su
+\begin{itemize}
+    \item \textit{Mesh} objekti
+    \item Kamera objekti
+    \item Renderer objekti
+\end{itemize}
+
+\textit{Mesh} objekte možemo inicijalizirati pomoću \textit{mesh} datoteke koje smo opisali u poglavlju \ref{pog:poligoni-mesh}.
+Biblioteka tada automatski pretvara vrhove i plohe modela u njihove matrične reprezentacije te ih možemo dohvatiti putem odgovarajućih članova objekta.
+Inicijalizacija je vrlo jednostavna te naš cijeli 3D objekt možemo inicijalizirati u jednoj programskoj liniji.
+Objekti kamere definiraju se preko rotacijskih i transfromacijskih matrica.
+Omogućuju nam pretvaranje koordinata iz koordinatnog sustava kamere u prostorni koordinatni sustav i obrnuto.
+Također je omogućeno definiranje novog tipa kamere ukoliko trenutne implementacije nisu zadovoljavajuće.
+Objekti za renderiranje koriste se kod procesa rasterizacije i osjenčavanje naše generirane slike.
+Ovdje imamo mogućnost definirati koji tip rasterziacije i osjenčavanje želimo te tipove i položaj osvjetljenja.
+Cjelokupnu arhitekturu renderer objekta te kako možemo vidjeti na slici \ref{fig:pytorch-architecture}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/pytorch-architecture}
+    \caption{Arhitektura renderera PyTorch3D biblioteke}
+    \label{fig:pytorch-architecture}
+\end{figure}
+\footnotetext{Preuzeto sa \url{https://pytorch3d.org/docs/renderer_getting_started}}
 
 %--- ZAKLJUČAK / CONCLUSION ----------------------------------------------------
 \chapter{Zaključak}
