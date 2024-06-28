@@ -10,45 +10,28 @@
 \usepackage{pythonhighlight}
 \usepackage{blindtext}
 \usepackage{bm}
+\usepackage{listings}
+\lstset{
+  breaklines=true,  % Enable line breaking
+  breakatwhitespace=true,  % Allow breaking at whitespace
+  basicstyle=\ttfamily\footnotesize,  % Set font style and size
+  captionpos=b,  % Set caption position to bottom
+  frame=single,  % Add a frame around the code
+  numbers=left,  % Add line numbers
+  numberstyle=\tiny,  % Line number font size
+  stepnumber=1,  % Line number step
+  tabsize=4,  % Set tab size
+  showstringspaces=false,  % Do not show spaces in strings
+  keywordstyle=\color{blue},  % Keyword color
+  commentstyle=\color{gray},  % Comment color
+  stringstyle=\color{red}  % String color
+}
 
 %--- PODACI O RADU / THESIS INFORMATION ----------------------------------------
 
-% Naslov na engleskom jeziku / Title in English
-\title{Visual state representation of robot manipulator}
-
-% Naslov na hrvatskom jeziku / Title in Croatian
-\naslov{Vizualna reprezentacija stanja robotskog manipulatora}
-
-% Broj rada / Thesis number
-\brojrada{476}
-
-% Autor / Author
-\author{Sven Šćekić}
-
-% Mentor 
-\mentor{Prof.\@ Marija Seder}
-
-% Datum rada na engleskom jeziku / Date in English
-\date{June, 2024}
-
-% Datum rada na hrvatskom jeziku / Date in Croatian
-\datum{lipanj, 2024.}
-
-%-------------------------------------------------------------------------------
 
 
 \begin{document}
-
-
-% Naslovnica se automatski generira / Titlepage is automatically generated
-\maketitle
-
-
-%--- ZADATAK / THESIS ASSIGNMENT -----------------------------------------------
-
-% Zadatak se ubacuje iz vanjske datoteke / Thesis assignment is included from external file
-% Upiši ime PDF datoteke preuzete s FERWeb-a / Enter the filename of the PDF downloaded from FERWeb
-\zadatak{diplomski-zadatak.pdf}
 
 
 %--- ZAHVALE / ACKNOWLEDGMENT --------------------------------------------------
@@ -686,6 +669,7 @@ Iako postoje veoma složeni modeli, najkorišteniji je i dalje Phongov model osv
 U nastavku ćemo pobliže opisati ovaj model.
 
 \subsection{Phongov model osvjetljenja}
+\label{pog:phong}
 Phongov model osvjetljenja prikazuje osvjetljenje našeg objekta kao linearnu kombinaciju triju komponenti:
 \begin{itemize}
     \item ambijentna komponenta
@@ -922,6 +906,137 @@ Cjelokupnu arhitekturu renderer objekta te kako možemo vidjeti na slici \ref{fi
 \end{figure}
 \footnotetext{Preuzeto sa \url{https://pytorch3d.org/docs/renderer_getting_started}}
 
+\chapter{Implementacija i rezultati}
+U ovom radu cilj nam je bio uspješno trenirati NeRF model za generiranje 3D modela robota.
+Svako treniranje dubokog modela započinje s prikupljanjem potrebnih podataka.
+Tako su za trening ovog modela potrebne slike našeg manipulatora iz raziličitih kuteva.
+Uz same slike potrebni su i parametri kamere.
+Zbog tih činjenica upotrijebili smo dostupni 3D model robota kako bismo generirali sintetičke slike koje smo tada predali našem modelu.
+Slike smo generirali putem konfiguracije koju smo izračunali putem analitičke inverzne kinematike.
+
+\noindent Cjelokupna implementacija može se podijeliti na četiri koraka:
+\begin{enumerate}
+    \item Generiranje konfiguracija za nasumične poze našeg izvršnog elementa
+    \item Generiranje slika određene konfiguracije
+    \item Učenje modela
+    \item Generiranje 3D reprezentacije manipulatora putem istreniranog modela
+\end{enumerate}
+U nastavku ćemo opisati svaki od navedenih koraka
+
+\section{Generiranje konfiguracija}
+\label{pog:konfig}
+Prvi korak u našoj implementaciji bio je generiranje konfiguracija manipulatora.
+Konfiguracije su nam bile potrebne kako bismo mogli naše mesh datoteke robota postaviti u kinematički lanac te tako dobiti stvarnu reprezentaciju stanja manipulatora.
+Generirali smo ih preko nasumičnih položaja i orjentacija našeg izvršnog elementa.
+Prilikom generiranja konfiguracija koristili smo analitički pristup inverzne kinematike za Panda manipulator razvijen od autora pod \cite{9646185}.
+
+Funkcija kojom smo generirali naše konfiguracija definirana je pod \ref{fig:configuration-func}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/c-code}
+    \caption{Potpis funkcije za izračun inverzne kinmatike}
+    \label{fig:configuration-func}
+\end{figure}
+
+Kao što možemo vidjeti funkcija je definirana u C++ progaramskom jeziku.
+Ovdje nam je pomogla Pythonova biblioteka pybind koja nam omogućava da programe iz C++ programskog jezika prevedemo u Python modul te taj modul izvodimo unutar našeg postojećeg rješenja.
+
+Ova funkcija kao parametre prima matricu položaja i orjentacije našeg izvršnog člana (\ref{eq:transformacijska matrica}) te zaokret zadnjeg zgloba manipulatora.
+Uzimajući u obzir definiciju inverzne kinematike može nas začuditi zašto u funkciju za izračun inverzne kinematike predajemo zaokret zadnjeg zgloba.
+Ovaj parametar je potreban zbog analitičkog pristupa računanju inverzne kinematike te zbog geometrije samog manipulatora.
+Postavljanjem ovog parametra znatno se ubrzava računanje zbog mogućnosti korištenja određenih analitičkih metoda.
+Funkcija vraća 4 moguće konfiguracije za zadanu pozu izvršnog člana ukoliko one postoje.
+
+\section{Generiranje slika pojedinačne konfiguracije}
+Generiranje slike našeg manipulatora sastoji se od sljedećih koraka:
+\begin{enumerate}
+    \item Učitavanje mesh datoteke našeg robota i povezivanje u kinematički lanac
+    \item Postavljanje kamere i renderera
+    \item Generiranje slike
+\end{enumerate}
+
+Mesh datoteke Panda manipulatora odvojene su po člancima te ih je potrebno povezati u kinematički lanac.
+Kako bismo mogli povezati članke manipulatora potrebna nam je njegova konfiguracija.
+Tu konfiguraciju odabiremo nasumično od svih generarnih konfiguracija iz \ref{pog:konfig}, nazvat ćemo ju $Q$.
+Za ovaj dio su zadužene datoteke \texttt{RobotMeshRenderer.py} i \texttt{PandaArm.py}.
+\newpage
+
+Prvo učitavamo naše mesh datoteke i definiramo model robota preko URDF datoteke koju je proizvođač generirao za ovaj speicifični manipulator.
+Nakon učitavanja potrebnih objekata krećemo u povezivanje članaka u kinematički lanac ovisno o konfiguraciji $Q$.
+
+Transformacijsku matricu za pojedini članak $l$ dobivamo provedbom direktne kinematike od početnog članka do $l$
+Iz dobivene transformacijske matrice uzimamo matricu rotacije i translacije te ih primjenjujemo na vrhove i plohe našeg modela kako bi ih ispravno postavili u prostoru.
+Postupak ponavljamo za sve članke manipulatora.
+
+Nakon što smo ispravno generirali položaj i orjentaciju našeg manipulatora u prostoru potrebno je inicijalizirati objekte pomoću kojih generiramo njegovu 2D reprezentaciju, odnosno sliku.
+Kod zadužen za inicijalizaciju i generiranje slike nalazi se u datoteci \texttt{GenerateRobotImages.py}.
+
+Generiramo dvije vrste renderera.
+Za oba renderera definiramo iste rasterizacijske postavke.
+Rasterizacijske postavke između ostalog sadrže i veličinu naše generirane slike koja je u ovom slučaju $200x200$ piksela.
+Prvi renderer zadužen je za generiranje slike u boji koja će prilikom učenja modela služiti za ispravnu reprezentaciju boja s originalnih slika.
+Ovaj renderer koristi Phongov model osvjetljenja kojeg smo opisali u poglavlju \ref{pog:phong}.
+Drugi renderer koristi se za generiranje oblika našeg manipulatora te služi za izračunavanje pogreške gustoće NeRF modela.
+Primjer dvije vrste generiranih slika možemo vidjeti na slici \ref{fig:slika-manipulator}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/panda-images}
+    \caption{Generirane slike Panda manipulatora}
+    \label{fig:slika-manipulator}
+\end{figure}
+
+Slike generiramo iz različitih kuteva kamere kako bismo omogućili učenje našeg NeRF modela.
+Primjer dvije slike iz različitih kuteva možemo vidjeti na \ref{fig:manipulator-2-kamere}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/different-angles-manipulator}
+    \caption{Prikaz manipulatora s dva različita kuta kamere}
+    \label{fig:manipulator-2-kamere}
+\end{figure}
+Nakon što smo generirali željeni broj slika za konfiguraciju $Q$ iz različitih kuteva kamere spremni smo za učenje našeg NeRF modela.
+Spremamo obje vrste generiranih slika i parametere kamere u obliku PyTorch \texttt{Dataset} objekta kojeg kasnije učitavamo prilikom učenja modela.
+
+\section{Učenje modela}
+Naša pojednostavljena implementacija NeRF modela sadržana je u datoteci \texttt{nerf.py}, dok se kod za učenje modela nalazi u datoteci \texttt{nerf.py}.
+U nastavku ćemo prikazati svaki sloj te objasniti njegovu ulogu.
+Naš model definira sljedeće slojeve tablice \ref{tab:nerf}.
+Varijable u dimenzijama predstavljaju sljedeće:
+\begin{itemize}
+    \item $N$ predstavlja veličinu grupe koju koristimo za treniranje (engl. \textit{batch})
+    \item $T$ predstavlja broj zraka koje generiramo za generiranje slike
+    \item $S$ predstavlja broj točaka na pojedinoj zraci
+    \item $R$ predstavlja broj skrivenih neurona
+\end{itemize}
+
+\newpage
+\begin{table}[H]
+    \centering
+\caption{Slojevi NeRF modela}
+\label{tab:nerf}
+\begin{tabular}{|c|c|p{10cm}|}
+  \hline
+  Sloj & Dimenzija & Opis \\
+  \hline
+  Ulazni & $[N, T, S, 3]$ & Generirane zrake \\
+  \hline
+  \textit{Embedding} & $[N, T, S, Q]$ & Pretvaranje 3D točaka sa zrake u više dimenzionalni prostor.
+  $Q = broj\_harmonijskih\_funkcija * 3 * 2$ \\
+  \hline
+  MLP & $[N, T, S, R]$ & Neuronska mreža s 1 skrivenim slojem i \textit{softplus} aktivacijskom funkcijom. \\
+  \hline
+  Gustoća & $[N, T, S, 1]$ & Sloj za izračun gustoće kako bismo dobili ispravan oblik našeg manipulatora \\
+  \hline
+  Boja & $[N, T, S, 3]$ & Sloj za izračun boje manipulatora kako bismo dobili ispravnu RGB reprezentaciju \\
+  \hline
+\end{tabular}
+\end{table}
+
+Možemo vidjeti kako je model zapravno dosta jednostavan bez velikog broja slojeva što je obično slučaj u novijim dubokim modelima.
+Prije samog treniranja učitavamo ranije spremljene slike i odgovarajuće parametre kamere za svaku sliku.
+Tijekom
 %--- ZAKLJUČAK / CONCLUSION ----------------------------------------------------
 \chapter{Zaključak}
 \label{pog:zakljucak}
@@ -940,24 +1055,30 @@ Cjelokupnu arhitekturu renderer objekta te kako možemo vidjeti na slici \ref{fi
 
 % Sažetak na hrvatskom
 \begin{sazetak}
-  Unesite sažetak na hrvatskom.
-
-  \blindtext
+    Razumijevanje kinematike manipulatora i njegove konfiguracije u prostoru veoma je bitno za uspješno obavljanje zadataka.
+    Kako bismo uspješno definirali kinematiku manipulatora potrebno je poznavati njegov model.
+    Cilj ovog rada bio je prikazati metodu za dobivanje 3D modela robota u određenoj konfiguraciji korištenjem NeRF modela.
+    Kroz rad ćemo objasniti direktnu i inverznu kinematiku robota te metode za dobivanje vizualnih reprezentacija.
+    Na kraju ćemo prikazati dobivene rezultate uz moguća unaprijeđenja na naš postojeći pristup.
 \end{sazetak}
 
 \begin{kljucnerijeci}
-  prva ključna riječ; druga ključna riječ; treća ključna riječ
+    kinematika, manipulator, konfiguracija, rendering, NeRF, 3D model
 \end{kljucnerijeci}
 
 
 % Abstract in English
 \begin{abstract}
-  Enter the abstract in English.
-  
+    Understanding the kinematics of a manipulator and its configuration in space is very important for successfully performing tasks.
+    To successfully define the kinematics of a manipulator, it is necessary to know its model.
+    The aim of this paper was to present a method for obtaining a 3D model of a robot in a specific configuration using the NeRF model.
+    Throughout the paper, we will explain the robot's forward and inverse kinematics and the methods for obtaining visual representations.
+    Finally, we will present the obtained results along with possible improvements to our existing approach.
+
 \end{abstract}
 
 \begin{keywords}
-  the first keyword; the second keyword; the third keyword
+    kinematics; manipulator; configuration; rendering; NeRF; 3D model
 \end{keywords}
 
 
