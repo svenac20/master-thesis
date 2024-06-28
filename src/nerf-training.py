@@ -26,7 +26,7 @@ from pytorch3d.renderer import (
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn
-from Utils import getBatchCameraFromIndexes
+from Utils import getBatchCameraFromIndexes, image_grid
 from generate_cow_renders import generate_cow_renders
 from nerf import NeuralRadianceField, huber, sample_images_at_mc_locs, show_full_render
 
@@ -46,7 +46,7 @@ render_size = 200*2
 # Our rendered scene is centered around (0,0,0) 
 # and is enclosed inside a bounding box
 # whose side is roughly equal to 3.0 (world units).
-volume_extent_world = 100.0
+volume_extent_world = 3.0
 
 # 1) Instantiate the raysamplers.
 
@@ -115,10 +115,10 @@ optimizer = torch.optim.Adam(neural_radiance_field.parameters(), lr=lr)
 
 # We sample 6 random cameras in a minibatch. Each camera
 # emits raysampler_mc.n_pts_per_image rays.
-batch_size = 6
+batch_size = 10
 
 # Init the loss history buffers.
-n_iter = 10000
+n_iter = 20000
 loss_history_color, loss_history_sil = [], []
 
 for iteration in range(n_iter):
@@ -174,7 +174,7 @@ for iteration in range(n_iter):
   optimizer.step()
 
 
-  if iteration % 100 == 0:
+  if iteration % 500 == 0:
         show_idx = torch.randperm(len(target_cameras))[:1]
         show_cameras = getBatchCameraFromIndexes(target_cameras, show_idx, device)
         show_full_render(
@@ -186,3 +186,39 @@ for iteration in range(n_iter):
             loss_history_color=loss_history_color,
             loss_history_sil=loss_history_sil
         )
+
+torch.save(neural_radiance_field.state_dict(), "nerf-model-final.pth")
+
+def generate_rotating_nerf(neural_radiance_field, n_frames = 50):
+    logRs = torch.zeros(n_frames, 3, device=device)
+    logRs[:, 1] = torch.linspace(-3.14, 3.14, n_frames, device=device)
+    Rs = so3_exp_map(logRs)
+    Ts = torch.zeros(n_frames, 3, device=device)
+    Ts[:, 2] = 2.7
+    frames = []
+    print('Rendering rotating NeRF ...')
+    for R, T in zip(tqdm(Rs), Ts):
+        camera = FoVPerspectiveCameras(
+            R=R[None], 
+            T=T[None], 
+            znear=target_cameras[0].znear,
+            zfar=target_cameras[0].zfar,
+            aspect_ratio=target_cameras[0].aspect_ratio,
+            fov=target_cameras[0].fov,
+            device=device,
+        )
+        # Note that we again render with `NDCMultinomialRaysampler`
+        # and the batched_forward function of neural_radiance_field.
+        frames.append(
+            renderer_grid(
+                cameras=camera, 
+                volumetric_function=neural_radiance_field.batched_forward,
+            )[0][..., :3]
+        )
+    return torch.cat(frames)
+    
+with torch.no_grad():
+    rotating_nerf_frames = generate_rotating_nerf(neural_radiance_field, n_frames=3*5)
+    
+image_grid(rotating_nerf_frames.clamp(0., 1.).cpu().numpy(), rows=3, cols=5, rgb=True, fill=True)
+plt.show()
