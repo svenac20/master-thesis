@@ -30,7 +30,7 @@
 %--- PODACI O RADU / THESIS INFORMATION ----------------------------------------
 
 
-
+\title{Vizualna reprezentacija stanja robotskog manipulatora}
 \begin{document}
 
 
@@ -38,7 +38,7 @@
 
 \begin{zahvale}
   % Ovdje upišite zahvale / Write in the acknowledgment
-    Zahvale
+    Prilikom pisanja ovog rada velike zahvale
 \end{zahvale}
 
 
@@ -58,14 +58,14 @@
 \label{pog:uvod}
 \hspace{\parindent}Robotika i automatika u današnjem svijetu dobivaju sve više pozornosti zbog svojih brojnih mogućnosti koje pružaju.
 Neke od najvećih industrija čiji je rast značajno potpomognut razvojem robotike su automobilska i zdravstvena industrija.
-Zbog primjene u takvim industrijama zahtjeva se poznavanje točne konfiguracije robota sa svim potrebnim parametrima kako
+Zbog primjene u takvim industrijama zahtijeva se poznavanje točne konfiguracije robota sa svim potrebnim parametrima kako
 bi se zadane radnje koje bi roboti trebali izvoditi izvele točno onako kako je očekivano.
 Ovo je posebice bitno u zdravstvenoj industriji gdje male razlike u parametrima mogu rezultirati ozbiljnim posljedicama.
 
 U ovom diplomskom radu pobliže ćemo objasniti što sve čini konfiguraciju robota te kako se ona zapisuje u standardnom obliku.
 Objasnit ćemo što su direktna i inverzna kinematika te kako se koriste prilikom prikaza različitih stanja robota.
-Nadalje ćemo prikazati različite metode za generiranje 2D slika pomoću 3D modela robota i njegovih konfiguracija.
-Na kraju ćemo prikazati suprotan proces, odnosno kako možemo iskoristit duboke modele kako bi iz njih naučili 3D model robota.
+Nadalje ćemo prikazati različite metode za generiranje 2D slika iz 3D modela robota i njegovih konfiguracija.
+Na kraju ćemo prikazati suprotan proces, odnosno kako možemo iskoristit duboke modele kako bi iz njih naučili 3D model robota za određenu konfiguraciju.
 Tijekom cijelog rada ove metode primjenjivat ćemo na Franka Emika Panda robotskom manipulatoru, ali naravno one su primjenjive i na bilo kojem drugom.
 
 %-------------------------------------------------------------------------------
@@ -85,11 +85,11 @@ Zglobovi su međusobno povezani člancima (eng. \textit{links}) koji imaju svoju
 
 Na samom vrhu robotskog manipulatora nalazi se izvršni element (eng. \textit{end effector}) koji služi za interakciju sa stvarnim svijetom.
 Upravo je taj dio zadužen za obavljanje zadanih radnji.
-Na slici \ref{fig:panda-zglob} možemo vidjeti pirmjere zglobova i članaka na Panda robotskom manipulatoru kojeg ćemo promatrati tijekom ovog rada.
+Na slici \ref{fig:panda-zglob} možemo vidjeti primjere zglobova i članaka na Panda robotskom manipulatoru kojeg ćemo promatrati tijekom ovog rada.
 \begin{figure}[H]
     \centering
     \includegraphics[width=12cm]{img/panda-links-and-joints}
-    \caption{Zglobovi i članci na Frank Emika Panda manipulatoru\protect\footnotemark}
+    \caption{Zglobovi i članci na Franka Emika Panda manipulatoru\protect\footnotemark}
     \label{fig:panda-zglob}
 \end{figure}
 \footnotetext{Preuzeto sa \url{ https://www.researchgate.net/ }}
@@ -101,7 +101,7 @@ Pojedinu konfiguraciju tada možemo promatrati kao točku unutar konfiguracijsko
 
 Kao i svaki prostor i konfiguracijski prostor ima svoju dimenziju i oblik.
 Dimenzija je određena brojem realnih koordinata potrebnih za potpunu reprezentaciju konfiguracije, što još nazivamo i stupnjevi slobode.
-Oblik konfiguracijskog prostora je također jako bitan s obzirom da on određuje moguće prepreke i ograničenja unutar samog prostora što smanjuje broj mogućih konfiguracija.
+Oblik konfiguracijskog prostora je također jako bitan s obzirom na to da on određuje moguće prepreke i ograničenja unutar samog prostora što smanjuje broj mogućih konfiguracija.
 U nastavku ćemo pobliže objasniti što sve utječe na broj stupnjeva slobode manipulatora te kakve sve oblike konfiguracijskog prostora možemo susresti.
 
 \hfill
@@ -113,7 +113,7 @@ Ono što najviše određuje radni prostor jesu vrste zglobova od kojih se naš m
 \begin{figure}[H]
     \centering
     \includegraphics[width=12cm]{img/robot-joints}
-    \caption{Vrste zglobova}
+    \caption{Vrste zglobova\protect\footnotemark}
     \label{fig:robot-joints}
 \end{figure}
 \footnotetext{Preuzeto sa \url{ https://hades.mech.northwestern.edu/images/2/25/MR-v2.pdf }}
@@ -123,8 +123,8 @@ Stupnjeve slobode čini broj nezavisnih varijabli koje određuju kretanje nekog 
 Kruta tijela u prostoru obično sadrže šest stupnjeva slobode.
 Tri stupnja slobode za translaciju, odnosno rotaciju, po svakoj od triju koordinatnih osi.
 
-Kod robotskih manipulatora stupnjeve slbode definiramo na razini zglobova ili manipulatora u cijelosti.
-Tako revolucijski zglob sadrži jedan stupanj slobode, odnosno rotaciju oko jedne osi, dok sferični zglob sadrži 3 stupnja slobode te funkcijom podjseća na ljudski rameni zglob.
+Kod robotskih manipulatora stupnjeve slobode definiramo na razini zglobova ili manipulatora u cijelosti.
+Tako revolucijski zglob sadrži jedan stupanj slobode, odnosno rotaciju oko jedne osi, dok sferični zglob sadrži 3 stupnja slobode te funkcijom podsjeća na ljudski rameni zglob.
 Ako želimo izraziti broj stupnjeva slobode za manipulator u cijelosti tada se možemo poslužiti Grüblerovom formulom koju možemo vidjeti u formuli (\ref{eq:grubler}).
 
 \begin{equation}
@@ -144,21 +144,22 @@ Konačno, varijabla \textit{f\textsubscript{i}} predstavlja broj stupnjeva slobo
 Uz dimenziju konfiguracijskog prostora bitan je i njegov oblik.
 Oblik prostora definiran je svojom topologijom, odnosno numeričkom reprezentacijom.
 
-Toplogiju možemo definirati kao skup sličnih oblika prostora, odnosno smatramo da su dva prostora topološki jednaka
-ako se jedan prostor može dobiti iz drugog bez "\textit{ljepljenja}" i "\textit{rezanja}"~\cite{10.5555/3165183}.
+Topologiju možemo definirati kao skup sličnih oblika prostora, odnosno smatramo da su dva prostora topološki jednaka
+ako se jedan prostor može dobiti iz drugog bez "\textit{lijepljenja}" i "\textit{rezanja}"~\cite{10.5555/3165183}.
 Tako možemo reći kako su sfera i elipsoid topološki jednaki, dok ravnina i kugla nisu.
 
 Oblik prostora prikazujemo putem njegove numeričke reprezentacije.
 Tako točku unutar ravnine predstavljamo s vektorom od dvije dimenzije, dok točku u prostoru predstavljamo s vektorom od tri dimenzije.
-Ukoliko je naš prostor sfernog oblika tada točku na sferi možemo prikazati preko dvije veličine kuteva.
+Ako je naš prostor sfernog oblika tada točku na sferi možemo prikazati preko dvije veličine kuteva.
 Različite numeričke reprezentacije i topologije možemo vidjeti na slici \ref{fig:configuration-topology}
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=12cm]{img/configuration-topology}
-    \caption{Konfiguracijski prostori njihova topologija i numerička reprezentacija}
+    \caption{Konfiguracijski prostori njihova topologija i numerička reprezentacija\protect\footnotemark}
     \label{fig:configuration-topology}
 \end{figure}
+\footnotetext{Preuzeto sa \url{ https://hades.mech.northwestern.edu/images/2/25/MR-v2.pdf }}
 
 \section{Kinematika krutog tijela} \label{section:kin-krutog-tijela}
 Kruto tijelo ćemo definirati kao idealni sustav točaka koje održavaju iste međusobne razmake~\cite{defKrutogTijela}.
@@ -171,15 +172,15 @@ Postoje tri osnovne vrste koordinatnih sustava:
   \item Prostorni ili trodimenzionalni sustavi
 \end{itemize}
 \newpage
-Zbog toga što u ovom radu promatramo pojmove u konteksu robotskog manipulatora mi ćemo se fokusirati na trodimenzionalni sustav.
+Zbog toga što u ovom radu promatramo pojmove u kontekstu robotskog manipulatora mi ćemo se fokusirati na trodimenzionalni sustav.
 Nakon što smo odredili dimenzije našeg koordinatnog sustava potrebno je odrediti koje je njegovo središte.
 
-Koordinatni sustav možemo predstaviti preko prostora unutar kojeg naš mainpulator djeluje što onda nazivamo prostorni oblik (engl. \textit{Space frame}).
+Koordinatni sustav možemo predstaviti preko prostora unutar kojeg naš manipulator djeluje što onda nazivamo prostorni oblik (engl. \textit{Space frame}).
 Drugi pristup koji možemo koristiti je da predstavimo koordinatni sustav preko neke fiksne točke na našem krutom tijelu što onda nazivamo \textit{tjelesni} oblik (engl. \textit{Body frame}).
 U kontekstu našeg manipulatora ta točka bi mogla biti njegova baza ili točka na izvršnom elementu.
 
 U praksi ćemo ipak uvijek htjeti promatrati naš manipulator kroz koordinatni sustav prostora, no onda bismo trebali biti upoznati kako pretvaramo koordinatni sustav našeg manipulatora u prostorni koordinatni sustav.
-Za takvu pretvorbu služe nam rotacijske i translacijskse matrice.
+Za takvu pretvorbu služe nam rotacijske i translacijske matrice.
 Ovo će nam koristiti i u nastavku kod izvoda formule direktne kinematike koju ćemo tada moći jednostavnije i jasnije izvesti.
 
 \subsection{Translacija i rotacija u prostoru}
@@ -199,10 +200,10 @@ Matricu translacije u prostornom koordinatnom sustavu u svom općem obliku može
     \label{eq:translacijska-matrica}
 \end{equation}
 
-Možemo vidjeti kako je ova matrica veličine 4x4, pa možemo postaviti validno pitanje kako ćemo našu trodimenzionalnu točku pomoću ove matrice translatirati u prostoru.
+Možemo vidjeti kako je ova matrica veličine $4 x 4$, pa možemo postaviti validno pitanje kako ćemo našu trodimenzionalnu točku s pomoću ove matrice translatirati u prostoru.
 Zato ćemo za računanje s ovakvim oblikom translacijske matrice upotrijebiti homogene koordinate koje ćemo definirati u poopćenom n-dimenzionalnom prostoru~\cite{book:irg}.
 
-\noindent~Ukoliko imamo n-dimenzionalnu točku koja je zadana kao:
+\noindent~Ako imamo n-dimenzionalnu točku koja je zadana kao:
 \begin{align*}
     \bm T_P=\left(T_{P_1}, T_{P_2}, \ldots, T_{P_n}\right)
 \end{align*}
@@ -254,7 +255,7 @@ Rotacija je prostorna transformacija koja točku rotira oko ishodišta za određ
 Pozitivnim smjerom rotacije smatrat ćemo smjer obrnut od kazaljke na satu.
 Za rotaciju u prostoru razlikujemo tri moguće rotacije.
 
-Pozitivnu rotaciju oko osi \textit{x}, \textit{y} i \textit{z} u općenitom obliku definiramo pomoću sljedećih rotacijskih matrica:
+Pozitivnu rotaciju oko osi \textit{x}, \textit{y} i \textit{z} u općenitom obliku definiramo s pomoću sljedećih rotacijskih matrica:
 
 \begin{equation}
     \boldsymbol{\Psi}_{\text {rotx }}=\left[\begin{array}{cccc}
@@ -288,8 +289,8 @@ Pozitivnu rotaciju oko osi \textit{x}, \textit{y} i \textit{z} u općenitom obli
 \hfill
 
 Ovakav općeniti oblik rotacijskih i translacijskih matrica nam nije previše pogodan za računanje.
-Htjeli bismo pomoću jedne matrice odrediti položaj i orjentaciju manipulatora u prostornom koordinatnom sustavu.
-Zbog toga uvodimo homogene tranformacijske matrice
+Htjeli bismo s pomoću jedne matrice odrediti položaj i orijentaciju manipulatora u prostornom koordinatnom sustavu.
+Zbog toga uvodimo homogene transformacijske matrice.
 \newpage
 \subsection{Homogene transformacijske matrice}
 Homogene transformacijske matrice definirat ćemo preko Euklidske \textit{SE(3)} grupe.
@@ -311,7 +312,7 @@ Našu \textit{SE(3)} grupu definirat ćemo kao sve 4 x 4 realne matrice sljedeć
 
 Ove matrice imaju i neka zanimljiva svojstva.
 Jedno od njih je da je inverz transformacijske matrice također transformacijska matrica te ima oblik definiran u (\ref{eq:inverz-transformacijske}).
-Ovo svojstvo nam može biti korisno kada želimo neku točku prikazati unutar koordinatnog sustava manipulatora a znamo njenu prostornu reprezentaciju.
+Ovo svojstvo nam može biti korisno kada želimo neku točku prikazati unutar koordinatnog sustava manipulatora, a znamo njenu prostornu reprezentaciju.
 \begin{equation}
     T^{-1}=\left[\begin{array}{cc}
     R & p \\
@@ -328,19 +329,19 @@ Ovo svojstvo će nam biti korisno kod izračuna direktne kinematike.
 Množenje transformacijskih matrica je također asocijativna operacija, ali nije komutativna.
 Zbog svih svojih svojstava homogene transformacijske matrice koriste se za:
 \begin{itemize}
-    \item Reprezentaciju položaja i orjentacije krutog tijela u prostoru
-    \item Transformaciju točke ili vektora iz jednog koordinatnog sustava u drugi
-    \item Pomicanje vektora ili koordinatnog sustava
+    \item reprezentaciju položaja i orijentacije krutog tijela u prostoru
+    \item transformaciju točke ili vektora iz jednog koordinatnog sustava u drugi
+    \item pomicanje vektora ili koordinatnog sustava
 \end{itemize}
 
 \newpage
 \section{Direktna kinematika}
-Direktna kinematika služi za izračun položaja i orjentacije izvršnog elementa uz poznati iznos kutova pojedinog zgloba manipulatora.
+Direktna kinematika služi za izračun položaja i orijentacije izvršnog elementa uz poznati iznos kutova pojedinog zgloba manipulatora.
 Veoma je bitna zbog toga što upravo tim izračunom možemo saznati konfiguraciju izvršnog elementa manipulatora kako bismo izvršili neku nama korisnu radnju.
 Direktnu kinematiku možemo računati u koordinatnom sustavu robota ili u prostornom koordinatnom sustavu.
-Mi ćemo se u nastavku fokusirati samo na prostorni oblik pošto nam je on korisniji kod upravljanja manipulatorom u stvarnom svijetu, pogotovo ako su pristune neke prepreke unutar prostora.
+Mi ćemo se u nastavku fokusirati samo na prostorni oblik pošto nam je on korisniji kod upravljanja manipulatorom u stvarnom svijetu, pogotovo ako su prisutne neke prepreke unutar prostora.
 
-U formuli direktne kinematike koristit ćemo transformacijske matrice za transformaciju položaja i orjentacije između koordinatnih sustava svakog pojedinog zgloba.
+U formuli direktne kinematike koristit ćemo transformacijske matrice za transformaciju položaja i orijentacije između koordinatnih sustava svakog pojedinog zgloba.
 Tako ćemo kod Panda robota, kojeg smo promatrali, za izračun direktne kinematike imati sedam transformacijskih matrica za susjedne zglobove te još dvije transformacijske matrice za dio kod izvršnog elementa.
 Formula za izračun direktne kinematike tada će biti definirana u formuli (\ref{eq:equation-direktna-kinematika}):
 \begin{equation}
@@ -349,12 +350,12 @@ T_{07}=T_{01} T_{12} T_{23} T_{34} T_{45} T_{56} T_{67} T_{F} T_{EE}
 \end{equation}
 
 Sada nam preostaje odrediti pojedinačne transformacijske matrice za susjedne zglobove.
-Ovo možemo odrediti pomoću dva pristupa.
+Ovo možemo odrediti s pomoću dva pristupa.
 Prvi pristup koristi PoE formulu, dok se drugi pristup oslanja na DH (Denavit-Hartenberg) parametre.
 \subsection{PoE formula}
 Za izračun putem ovog pristupa potrebne su nam sljedeće varijable:
 \begin{itemize}
-    \item Matrica \textit{M} koja predstavlja položaj i orjentaciju izvršnog elementa kada je manipulator u početnom stanju, odnosno kada su svi kutovi zglobova jednaki 0
+    \item Matrica \textit{M} koja predstavlja položaj i orijentaciju izvršnog elementa kada je manipulator u početnom stanju, odnosno kada su svi kutovi zglobova jednaki 0
     \item Matrice \textit{$S_1, ..., S_7$} koje odgovaraju translaciji i rotaciji u odnosu na središte prostornog koordinatnog sustava kada je manipulator u početnom stanju te rotira oko zgloba
     \item Konfiguracija kuteva \textit{$\theta_1, ..., \theta_7$} koje predstavljaju zaokret pojedinog zgloba
 \end{itemize}
@@ -405,7 +406,7 @@ Tako će homogena transformacijska matrica za zglob \textit{i} biti definirana p
 \subsection{DH parametri}
 DH, odnosno Denavit-Hartenberg parametri, predstavljaju drugačiji način definiranja parametara za pojedini zglob manipulatora.
 U formuli (\ref{eq:s-matrica-stupac}) možemo vidjeti kako za potpunu definiciju matrice \textit{S} pojedinog zgloba moramo poznavati šest parametara, odnosno tri za translaciju te tri za rotaciju.
-Nasuprot tome, DH parametri zahtjevaju samo četiri varijable za pojedini zglob manipulatora.
+Nasuprot tome, DH parametri zahtijevaju samo četiri varijable za pojedini zglob manipulatora.
 \begin{figure}[H]
     \centering
     \includegraphics[width=12cm]{img/dh-parametri}
@@ -1034,15 +1035,95 @@ Varijable u dimenzijama predstavljaju sljedeće:
 \end{tabular}
 \end{table}
 
-Možemo vidjeti kako je model zapravno dosta jednostavan bez velikog broja slojeva što je obično slučaj u novijim dubokim modelima.
-Prije samog treniranja učitavamo ranije spremljene slike i odgovarajuće parametre kamere za svaku sliku.
-Tijekom
+Proces treniranja uključuje našeg modela uključuje:
+\begin{enumerate}
+    \item Definiranje skupa podataka za učenje i isptivitanje pomoću generiranih slika i odgovarajućih kamera. Skup za učenje i ispitvanje definiramo u omjeru 4:1.
+    \item Postavljanje objekata za generiranje zraka. Efikasniji pristup koristi se prilikom učenja, dok se detaljniji pristup koristi prilikom ispitivanja.
+    \item Postavljanje optimizacijskog algoritma i veličine grupe za treniranje. Odabrali smo Adam algoritam \cite{kingma2017adammethodstochasticoptimization} sa stopom učenja $10^{-3}$ te veličinu grupe od 10 slika.
+    \item Početak treniranja, odnosno generiranje zraka koje predajemo našem modelu
+    \item Generiranje RGB slika i slika oblika manipulatora
+    \item Izračunavanje Huber pogreške boje i gustoće
+    \item Postupak treniranja ponavljamo 25000 iteracija
+    \item Zadnjih 6000 iteracija smanjujemo stopu učenja na $10^{-4}$ radi dobivanja boljih detalja na generiranim fotografijama
+\end{enumerate}
+\newpage
+
+Prilikom treniranja svakih 500 iteracija uzimamo nasumičnu sliku iz skupa za ispitivanje i generiramo sliku pomoću našeg modela.
+Također prikazujemo i pogrešku gustoće i boje naše generirane slike tijekom iteracija.
+Na slici \ref{fig:500-iteracija} možemo vidjeti generirane slike putem našeg modela nakon 500 iteracija, a na slici \ref{fig:500-iteracija-graf} možemo vidjeti pogreške do 500-te iteracije.
+Kao što vidimo već imamo prilično slične obrise našeg manipulatora.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/500-iteracij}
+    \caption{Generirane slike nakon 500 iteracija učenja}
+    \label{fig:500-iteracija}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/500-iteracija-graf}
+    \caption{Pogreške boje i gustoće nakon 500 iteracija učenja}
+    \label{fig:500-iteracija-graf}
+\end{figure}
+
+Prikazati ćemo još i konačne rezultate na kraju svih 25000 iteracija.
+Generirane slike i pogreške kroz iteracije možemo vidjeti na slici \ref{fig:25000-iteracija-slika}, odnosno \ref{fig:25000-iteracija-graf}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=12cm]{img/final-slike}
+    \caption{Generirane slike nakon 25000 iteracija}
+    \label{fig:25000-iteracija-slika}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/25000-iteracija-graf}
+    \caption{Pogreška boje i gustoće tijekom 25000 iteracija}
+    \label{fig:25000-iteracija-graf}
+\end{figure}
+
+Pogreške našeg modela značajno se smanjuju unutar prvih 1000 iteracija.
+Nakon toga gubitak gustoće ostaje gotovo stalan, dok se gubitak boje dodatno smanjuje do oko 15000 iteracija.
+Takvo ponašanje možemo promatrati kao prvobitno učenje oblika manipulatora, koje je onda upotpunjeno njegovim teksturama u kasnijim iteracijama.
+Možemo vidjeti kako je naše smanjivanje stope učenja uspjelo dodatno smanjiti gubitak boje, dok nije previše utjecalo na gubitak gustoće.
+
+Nakon zavšetka procesa učenja prikazujemo sposobnost našeg modela da generira kompletno nove slike manipulatora.
+Rezultate generiramo u datoteci \textttt{nerf-testing.py} te ih možemo vidjeti na slici \ref{fig:final-slike-3d}
+Slike generiramo iz 15 različitih pozicija kamere.
+Ovime predstavljamo model našeg robota u prostoru preko NeRF modela, odnosno njegovih težina.
+Ukoliko želimo prikazati reprezentaciju mainpulatora u prostoru dovoljno je samo predati parametre kamere iz kojih dobivamo konačnu sliku.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=15cm]{img/15-slika}
+    \caption{Generirane slike manipulatora iz novih kuteva kamere}
+    \label{fig:final-slike-3d}
+\end{figure}
+
+\section{Unaprijeđenja trenutnog modela}
+Naš trenutni model uspješno generira 2D reprezentacije manipulatora u određenoj konfiguraciji u kojoj je naučen.
+Također se vrlo lako može iskoristiti za generiranje 3D modela prikladnog za pregled u raznim aplikacijama koje zahtjevaju takav format.
+Za ovaj pristup možemo iskoristiti već postojeću funkciju gustoće koju generira naš model.
+
+Međutim, ovdje možemo uvidjeti jedan problem, a to je da je naša reprezentacija modela ograničena na jednu konfiguraciju robota.
+Ono što želimo postići je dobivanje reprezentacije manipulatora ovisno o predanoj konfiguraciji.
+Ovakav pristup su također predložili i autori pod\cite{nerfSelfModelling}.
+U tom pristupu zamjenjujemo kuteve kamere s konfiguracijom robota te kao rezultat dobivamo 2D reprezentaciju robota iz jednog kuta kamere, ali s točno određenom konfiguracijom.
+U našem radu smo nakon uspješnog učenja početnog modela isprobali i ovaj pristup, no nismo dobili zadovoljajuće rezultate.
+Ovaj pristup bi se dalje mogao iskoristiti za izračunavanje DH parametara iz dobivene reprezentacije što bi omogućilo izračune inverzne kinematike i za manipulatore čiji podaci nisu poznati.
+
 %--- ZAKLJUČAK / CONCLUSION ----------------------------------------------------
 \chapter{Zaključak}
 \label{pog:zakljucak}
+Poznavanje kinematike manipulatora i njegovog ponašanja u prostoru veoma je kompleksan zadatak, ali je također i veoma bitan s obzirom da predstavlja osnovu upravljanja manipulatorom u prostoru.
+Kroz ovaj diplomski rad objasnili smo što sve čini konfiguraciju manipulatora u prostoru te što za njegovo obavljanje zadataka znače direktna i inverzna kinematika.
+Objasnili smo i postupak kreiranja 2D reprezentacije manipulatora te kako smo iskoristili NeRF duboki model kako bi takve reprezentacije uspješno kreirali
 
-
-
+Naš predstavljeni model još ima puno mjesta za napredak u budućnosti.
+Trenutno generira reprezentaciju manipulatora u točno određenoj konfiguraciji, dok bi bilo veoma korisno kada bismo mogli kreirati reprezentaciju modela u prostoru u bilo kojoj željenoj konfiguraciji.
+Takav pristup bi se kasnije mogao iskoristiti za izračunavanje DH parametara iz reprezentacije robota što je još poprilično neistraženo područje
 %--- LITERATURA / REFERENCES ---------------------------------------------------
 
 % Literatura se automatski generira iz zadane .bib datoteke / References are automatically generated from the supplied .bib file
